@@ -5,7 +5,8 @@ __pycache__
 .vscode
 .ipynb_checkpoints
 *.pth
-uv.lock
-pyproject.toml
+# uv files are needed for building
+# uv.lock and pyproject.toml should not be ignored during build
+
 !flower_model_weights.pth
 !data/flowers-102
