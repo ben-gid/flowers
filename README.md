@@ -1,15 +1,25 @@
 # Flower Classification API 🌸
 
-A PyTorch-based flower classification pipeline and FastAPI service.
+A PyTorch-based flower classification pipeline and FastAPI service for identifying flower species using the Oxford-102 dataset.
 
 ## Project Structure
-- `api.py`: FastAPI service for model inference.
-- `models.py`: CNN model architecture and Dataset definitions.
-- `train.py`: Training script and utilities.
-- `flower_model_weights.pth`: Trained model weights.
-- `data/`: Oxford-102 Flower dataset and label files.
-- `tests/`: Automated tests for API and lifespan logic.
-- `Dockerfile`: Containerization setup using `uv`.
+
+```text
+flowers/
+├── data/                 # Dataset & Label files (Oxford-102)
+├── src/
+│   └── flowers/          # Core package
+│       ├── __init__.py
+│       ├── api.py        # FastAPI endpoints
+│       ├── main.py       # API Entry point
+│       ├── models.py     # Model architecture & Dataset logic
+│       └── train.py      # Model training script
+├── tests/                # Automated pytest suite
+├── flower_model_weights.pth # Trained model weights (Git Ignored)
+├── Dockerfile            # Container configuration
+├── pyproject.toml        # Dependency management
+└── README.md
+```
 
 ## Setup and Installation
 
@@ -23,7 +33,7 @@ This project uses [uv](https://github.com/astral-sh/uv) for lightning-fast depen
 
 2. Run the API:
    ```bash
-   uv run uvicorn api:app --reload
+   uv run python src/flowers/main.py
    ```
 
 3. Run Tests:
@@ -31,8 +41,24 @@ This project uses [uv](https://github.com/astral-sh/uv) for lightning-fast depen
    uv run pytest
    ```
 
-### Docker Setup
-To containerize the application:
+## Training the Model
+
+The project includes a `train.py` script to train the CNN from scratch. 
+
+> **Important**: The `flower_model_weights.pth` file is required for the API to make predictions. If this file is missing, you must run the training script first:
+
+```bash
+uv run python src/flowers/train.py
+```
+
+This script will:
+1. Download the Oxford-102 dataset if not found in `data/`.
+2. Train the model using CUDA (if available) or CPU.
+3. Save the best model weights to `flower_model_weights.pth`.
+
+## Docker Setup
+
+To run the application in a container:
 
 1. Build the image:
    ```bash
@@ -66,7 +92,7 @@ curl -X 'POST' \
 ```
 
 ## GitHub / Deployment Notes
-- **Large Files**: The model weights (`.pth`) are currently included in the Docker build but excluded from Git via `.gitignore` to avoid repository bloat. For production, consider using Git LFS or hosting weights on an external bucket (S3/GCS).
+- **Large Files**: The model weights (`.pth`) are currently included in the Docker build but excluded from Git via `.gitignore` to avoid repository bloat. 
 - **Environment Variables**:
-  - `MODEL_PATH`: Path to the weights file.
-  - `DATA_ROOT`: Path to the dataset labels directory.
+  - `MODEL_PATH`: Path to the weights file (default: `./flower_model_weights.pth`).
+  - `DATA_ROOT`: Path to the dataset labels directory (default: `./data`).
