@@ -1,0 +1,11 @@
+.git
+.venv
+__pycache__
+.ruff_cache
+.vscode
+.ipynb_checkpoints
+*.pth
+uv.lock
+pyproject.toml
+!flower_model_weights.pth
+!data/flowers-102
