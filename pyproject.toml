@@ -1,0 +1,26 @@
+[project]
+name = "flowers"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.131.0",
+    "jupyter>=1.1.1",
+    "pillow>=12.1.1",
+    "pip>=26.0.1",
+    "pylance>=2.0.1",
+    "scipy>=1.17.1",
+    "torch>=2.10.0",
+    "torchvision>=0.25.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.2",
+]
+[tool.setuptools.packages.find]
+where = ["src"]
+[tool.pytest.ini_options]
+pythonpath = ["src"]
