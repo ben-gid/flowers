@@ -5,6 +5,7 @@ import os
 from PIL import Image
 import io
 import torch
+from torch.nn import functional as F
 from torch._tensor import Tensor
 from pydantic import BaseModel
 import logging
@@ -61,7 +62,7 @@ async def lifespan(app:FastAPI):
     
     # load model on startup
     logger.info(f"Loading CNN model from {model_path}...")
-    model, _, _, _ = init_model()
+    model, _, _ = init_model()
     model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
     # set model to eval mode
     model.eval()
@@ -143,14 +144,14 @@ async def predict(file: UploadFile = File(description="Upload an image of a flow
         prediction: Tensor = app.state.model(transform_img)
     
     # get class name
-    classification = prediction.argmax().item()
+    classification = int(prediction.argmax().item())
     class_name = app.state.class_names[classification]
     
     # get confidence
-    confidence = torch.nn.functional.softmax(prediction, dim=1)[0][classification].item()
+    confidence = F.softmax(prediction, dim=1)[0][classification].item()
     
     return PredictionResponse(
-        filename=file.filename,
+        filename=file.filename or "unknown",
         content_type=file.content_type,
         prediction=class_name,
         confidence=confidence

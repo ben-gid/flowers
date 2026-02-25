@@ -41,9 +41,11 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
     
-    num_epochs = 20
+    model, loss_function, optimizer= init_model()
     
-    model, loss_function, optimizer, scheduler = init_model()
+    num_epochs = 100
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=0.0002)
+    
     
     model, metrics = train(model, train_loader, val_loader, loss_function, optimizer, scheduler, num_epochs, device)
     
@@ -61,13 +63,10 @@ def init_model():
 
     loss_function = nn.CrossEntropyLoss()
 
-    optimizer = optim.Adam(model.parameters(), lr=0.0005, weight_decay=0.0005)
+    optimizer = optim.Adam(model.parameters(), weight_decay=0.0005)
     
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='max', factor=0.5, patience=3
-    )
     
-    return model, loss_function, optimizer, scheduler
+    return model, loss_function, optimizer
 
     
 def get_device() -> torch.device:
@@ -182,7 +181,7 @@ def train(
     val_loader: DataLoader,
     loss_function: nn.CrossEntropyLoss,
     optimizer: optim.Adam,
-    scheduler: optim.lr_scheduler.LRScheduler,
+    scheduler,
     num_epochs: int,
     device: torch.device
 ):
@@ -213,8 +212,8 @@ def train(
         # Print the metrics for the current epoch
         print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {epoch_loss:.4f}, Val Loss: {epoch_val_loss:.4f}, Val Accuracy: {epoch_accuracy:.2f}%")
         
-        # Update the learning rate based on validation accuracy
-        scheduler.step(int(epoch_accuracy))
+        # Update the learning rate
+        scheduler.step()
         
         # Check if the current model is the best one so far
         if epoch_accuracy > best_val_accuracy:
