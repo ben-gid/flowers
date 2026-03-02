@@ -1,5 +1,5 @@
 ---
-license: apache 2.0
+license: apache-2.0
 library_name: pytorch
 tags:
 - image-classification
