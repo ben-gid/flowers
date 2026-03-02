@@ -1,3 +1,14 @@
+---
+license: apache 2.0
+library_name: pytorch
+tags:
+- image-classification
+- flowers
+- computer-vision
+metrics:
+- accuracy
+---
+
 # Flower Classification API 🌸
 
 A PyTorch-based flower classification pipeline and FastAPI service for identifying flower species using the Oxford-102 dataset.
