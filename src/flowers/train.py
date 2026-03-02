@@ -36,7 +36,7 @@ def main():
     val_dataset = SubsetWithTransform(val_dataset, val_transform)
     test_dataset = SubsetWithTransform(test_dataset, val_transform)
     
-    batch_size = 100
+    batch_size = 64
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)

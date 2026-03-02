@@ -1,29 +1,27 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Body, File, UploadFile, HTTPException
 from pathlib import Path
-import os
 from PIL import Image
 import io
 import torch
 from torch.nn import functional as F
 from torch._tensor import Tensor
 from pydantic import BaseModel
-import logging
 import sys
 
 # Add 'src' directory to sys.path
 # Path(__file__).parent is src/flowers/
 sys.path.append(str(Path(__file__).parent.parent))
 
+
 try:
-    from .train import init_model, get_transforms
+    from .train import get_transforms
+    from .utils import init_logger, load_class_names, load_model
 except (ImportError, ValueError):
-    from train import init_model, get_transforms
+    from train import get_transforms
+    from utils import init_logger, load_class_names, load_model
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-
-logger = logging.getLogger(__name__)
+logger = init_logger(__name__)
 
 MIN_IMG_SIZE = 224
 MAX_FILE_SIZE = 5 * 1024 * 1024 # 5mb limit
@@ -37,35 +35,12 @@ class PredictionResponse(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
-    # Get paths from env or use defaults
-    # Path(__file__).parent is src/flowers/
-    # We want root which is parent.parent.parent
-    project_root = Path(__file__).parent.parent.parent
-    data_root = Path(os.getenv("DATA_ROOT", project_root / "data"))
-    model_path = Path(os.getenv("MODEL_PATH", project_root / "flower_model_weights.pth"))
     
     # get model classes
-    logger.info(f"Loading Class Names from {data_root}")
-    # We only need get_classes, we don't need the full Dataset instance logic
-    try:
-        classes_path = data_root / "Oxford-102_Flower_dataset_labels.txt"
-        if not classes_path.exists():
-            logger.error(f"Class names file NOT FOUND at {classes_path}. Please ensure it is present.")
-            app.state.class_names = [f"Class {i}" for i in range(102)]
-        else:
-            with open(classes_path) as f:
-                app.state.class_names = f.read().splitlines()
-            logger.info("Class Names loaded")
-    except Exception as e:
-        logger.error(f"Failed to load class names: {e}")
-        app.state.class_names = [f"Class {i}" for i in range(102)]
+    app.state.class_names = load_class_names(logger)
     
     # load model on startup
-    logger.info(f"Loading CNN model from {model_path}...")
-    model, _, _ = init_model()
-    model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
-    # set model to eval mode
-    model.eval()
+    model = load_model(logger)
     
     logger.info("Loading Transform...")
     _, val_transform = get_transforms()
