@@ -7,11 +7,11 @@ import pytest
 import torch
 from unittest.mock import patch, MagicMock
 
+from flowers.api import app
+
 # Add the root and src directories to sys.path
 root_dir = Path(__file__).parent.parent
 sys.path.append(str(root_dir / "src"))
-
-from flowers.api import app
 
 @pytest.fixture
 def mock_api_startup():
@@ -34,7 +34,7 @@ def mock_api_startup():
 
 def test_lifespan_state_initialization(mock_api_startup):
     """Test that startup correctly populates app.state and shutdown clears it."""
-    with TestClient(app) as client:
+    with TestClient(app):
         # Check if startup populated the state
         assert hasattr(app.state, "model")
         assert hasattr(app.state, "class_names")
