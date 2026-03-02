@@ -8,6 +8,7 @@ tags:
 metrics:
 - accuracy
 ---
+![CI Status](https://github.com/ben-gid/flowers/actions/workflows/ci.yml/badge.svg)
 # Flower Classification API 🌸
 
 A PyTorch-based flower classification pipeline and FastAPI service for identifying flower species using the Oxford-102 dataset.
