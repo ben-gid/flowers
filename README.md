@@ -10,14 +10,15 @@ flowers/
 ├── src/
 │   └── flowers/          # Core package
 │       ├── __init__.py
-│       ├── api.py        # FastAPI endpoints
+│       ├── api.py        # FastAPI logic (Prediction & Health)
 │       ├── main.py       # API Entry point
-│       ├── models.py     # Model architecture & Dataset logic
-│       └── train.py      # Model training script
+│       ├── models.py     # SimpleCNN & FlowerDataset definitions
+│       ├── train.py      # Training utilities
+│       └── utils.py      # Logging & Model loading utilities
 ├── tests/                # Automated pytest suite
-├── flower_model_weights.pth # Trained model weights (Git Ignored)
+├── flower_model_weights.pth # Best model weights (only in huggingface repo unless trained locally)
 ├── Dockerfile            # Container configuration
-├── pyproject.toml        # Dependency management
+├── pyproject.toml        # Dependency management (uv)
 └── README.md
 ```
 
@@ -41,11 +42,14 @@ This project uses [uv](https://github.com/astral-sh/uv) for lightning-fast depen
    uv run pytest
    ```
 
-## Training the Model
+## Model Weights & Training
 
-The project includes a `train.py` script to train the CNN from scratch. 
+### Automatic Weight Loading
+The API is designed to be "plug-and-play". If the `flower_model_weights.pth` file is not found locally, the application will automatically download the latest weights from the Hugging Face Hub:
+👉 **[bengid/flower-classifier](https://huggingface.co/bengid/flower-classifier)**
 
-> **Important**: The `flower_model_weights.pth` file is required for the API to make predictions. If this file is missing, you must run the training script first:
+### Manual Training
+If you wish to train the model yourself (e.g., to experiment with the architecture or hyperparameters), you can run the training script:
 
 ```bash
 uv run python src/flowers/train.py
