@@ -20,9 +20,37 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "pre-commit>=4.1.0",
+    "pyright>=1.1.396",
     "pytest>=9.0.2",
+    "ruff>=0.9.9",
 ]
 [tool.setuptools.packages.find]
 where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "PL"]
+ignore = [
+    "PLR0913", # Too many arguments
+    "N812",    # functional as F (standard in PyTorch)
+    "B008",    # FastAPI depends (File, Body, etc.)
+    "PLW2901", # Overwriting loop variables (common in training loops)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR2004"]
+"notbooks/*" = ["ALL"] # Ignore notebooks for now as they are experimental
+
+[tool.pyright]
+include = ["src"]
+exclude = ["**/__pycache__"]
+pythonVersion = "3.14"
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportOptionalMemberAccess = true

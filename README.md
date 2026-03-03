@@ -106,8 +106,37 @@ curl -X 'POST' \
   -F 'file=@your_flower.jpg'
 ```
 
+## Development & Quality Control
+
+This project uses a suite of tools to maintain code quality:
+- **Ruff**: Extremely fast Python linter and formatter.
+- **Pyright**: Static type checker for Python.
+- **Pre-commit**: Automatically runs checks before every commit.
+
+### Setup Development Environment
+1. Install dev dependencies:
+   ```bash
+   uv sync --dev
+   ```
+
+2. Install pre-commit hooks:
+   ```bash
+   uv run pre-commit install
+   ```
+
+### Manual Checks
+You can run the quality suite manually at any time:
+```bash
+# Run all pre-commit hooks
+uv run pre-commit run --all-files
+
+# Run specific tools
+uv run ruff check .
+uv run pyright
+```
+
 ## GitHub / Deployment Notes
-- **Large Files**: The model weights (`.pth`) are currently included in the Docker build but excluded from Git via `.gitignore` to avoid repository bloat. 
+- **Large Files**: The model weights (`.pth`) are currently included in the Docker build but excluded from Git via `.gitignore` to avoid repository bloat.
 - **Environment Variables**:
   - `MODEL_PATH`: Path to the weights file (default: `./flower_model_weights.pth`).
   - `DATA_ROOT`: Path to the dataset labels directory (default: `./data`).
