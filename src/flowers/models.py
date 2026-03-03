@@ -9,7 +9,7 @@ from torch import nn
 from torch._tensor import Tensor
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import Subset
-from torchvision import transforms
+from torchvision import datasets, transforms
 
 
 # create custom flower dataset
@@ -22,7 +22,6 @@ class FlowerDataset(Dataset):
         # Download dataset if not found
         if not self.flowers_path.exists():
             print(f"Dataset not found at {self.flowers_path}. Downloading...")
-            from torchvision import datasets
 
             # Download and extract the dataset files into root_dir/flowers-102
             # We call it once to trigger the download logic
