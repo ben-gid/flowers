@@ -1,13 +1,14 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Body, File, UploadFile, HTTPException
-from pathlib import Path
-from PIL import Image
 import io
-import torch
-from torch.nn import functional as F
-from torch._tensor import Tensor
-from pydantic import BaseModel
 import sys
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+import torch
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from PIL import Image
+from pydantic import BaseModel
+from torch._tensor import Tensor
+from torch.nn import functional as F
 
 # Add 'src' directory to sys.path
 # Path(__file__).parent is src/flowers/
@@ -24,8 +25,9 @@ except (ImportError, ValueError):
 logger = init_logger(__name__)
 
 MIN_IMG_SIZE = 224
-MAX_FILE_SIZE = 5 * 1024 * 1024 # 5mb limit
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5mb limit
 IMG_EXT = {"image/jpeg", "image/png", "image/jpg"}
+
 
 class PredictionResponse(BaseModel):
     filename: str
@@ -33,110 +35,126 @@ class PredictionResponse(BaseModel):
     prediction: str
     confidence: float
 
+
 @asynccontextmanager
-async def lifespan(app:FastAPI):
-    
+async def lifespan(app: FastAPI):
     # get model classes
     app.state.class_names = load_class_names(logger)
-    
+
     # load model on startup
     model = load_model(logger)
-    
+
     logger.info("Loading Transform...")
     _, val_transform = get_transforms()
-    
+
     app.state.model = model
     logger.info("Model loaded")
     app.state.transform = val_transform
     logger.info("Transform loaded")
     yield
-    
+
     del app.state.class_names
     del app.state.model
     del app.state.transform
-    logger.info("Model, Transform, and Class Names cleared from memory.")    
+    logger.info("Model, Transform, and Class Names cleared from memory.")
 
-app = FastAPI(lifespan=lifespan)   
+
+app = FastAPI(lifespan=lifespan)
+
 
 @app.post(
-    "/predict", 
-    summary="Predict flower image", 
-    description="Upload an image of a flower and get the predicted class", 
+    "/predict",
+    summary="Predict flower image",
+    description="Upload an image of a flower and get the predicted class",
     response_model=PredictionResponse,
-    responses={200: {
-        "description": "Prediction successful", 
-        "content": {
-            "application/json": {
-                "example": {
-                    "filename": "rose.jpg", "content_type": "image/jpeg", "prediction": "rose"
+    responses={
+        200: {
+            "description": "Prediction successful",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "filename": "rose.jpg",
+                        "content_type": "image/jpeg",
+                        "prediction": "rose",
                     }
                 }
-            }
-        }, 
-        400: {"description": "Invalid file type"}, 
+            },
+        },
+        400: {"description": "Invalid file type"},
         413: {"description": "File too large"},
-        500: {"description": "Internal server error"}
+        500: {"description": "Internal server error"},
     },
-    
-    )
-async def predict(file: UploadFile = File(description="Upload an image of a flower", content_type="image/jpeg, image/png, image/jpg")):
+)
+async def predict(
+    file: UploadFile = File(
+        description="Upload an image of a flower",
+        content_type="image/jpeg, image/png, image/jpg",
+    ),
+):
     # validate file extension
     if file.content_type not in IMG_EXT:
         logger.warning(f"Invalid file type. Allowed: {IMG_EXT}")
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type. Allowed: {IMG_EXT}"
+            status_code=400, detail=f"Invalid file type. Allowed: {IMG_EXT}"
         )
-        
+
     # validate file size
     if file.size is not None and file.size > MAX_FILE_SIZE:
         logger.warning(f"File too large. Maximum size: {MAX_FILE_SIZE}")
         raise HTTPException(status_code=413, detail="File too large")
-    
+
     # read file to memory
     file_contents = await file.read()
-    
+
     # convert to PIL image
     try:
         img = Image.open(io.BytesIO(file_contents)).convert("RGB")
-        
+
         # validate image size
         if img.size[0] < MIN_IMG_SIZE or img.size[1] < MIN_IMG_SIZE:
-            logger.warning(f"Image too small. Minimum size: {MIN_IMG_SIZE}x{MIN_IMG_SIZE}")
-            raise HTTPException(status_code=400, detail=f"Image too small. Minimum size: {MIN_IMG_SIZE}x{MIN_IMG_SIZE}")
+            logger.warning(
+                f"Image too small. Minimum size: {MIN_IMG_SIZE}x{MIN_IMG_SIZE}"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=f"Image too small. Minimum size: {MIN_IMG_SIZE}x{MIN_IMG_SIZE}",
+            )
     except Exception as e:
         logger.warning(f"Invalid image file: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Invalid image file: {str(e)}")
-    
+        raise HTTPException(
+            status_code=400, detail=f"Invalid image file: {str(e)}"
+        ) from e
+
     # get device
     device = next(app.state.model.parameters()).device
-    
+
     # transform image to tensor and add batch dimension and move to device
     transform_img = app.state.transform(img).unsqueeze(0).to(device)
-    
+
     # make prediction
     with torch.no_grad():
         prediction: Tensor = app.state.model(transform_img)
-    
+
     # get class name
     classification = int(prediction.argmax().item())
     class_name = app.state.class_names[classification]
-    
+
     # get confidence
     confidence = F.softmax(prediction, dim=1)[0][classification].item()
-    
+
     return PredictionResponse(
         filename=file.filename or "unknown",
         content_type=file.content_type,
         prediction=class_name,
-        confidence=confidence
+        confidence=confidence,
     )
-    
+
+
 @app.get("/health")
 async def health():
     return {
-        "status": "ok", 
-        "model_loaded": hasattr(app.state, "model"), 
-        "class_names_loaded": hasattr(app.state, "class_names"), 
-        "transform_loaded": hasattr(app.state, "transform")
+        "status": "ok",
+        "model_loaded": hasattr(app.state, "model"),
+        "class_names_loaded": hasattr(app.state, "class_names"),
+        "transform_loaded": hasattr(app.state, "transform"),
     }
