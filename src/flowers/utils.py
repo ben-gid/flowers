@@ -61,7 +61,7 @@ def load_scratch_model(logger: logging.Logger | None = None) -> SimpleCNN:
     if not scratch_model_path.exists():
         scratch_model_path = hf_hub_download(
             repo_id="bengid/flower-classifier",
-            filename="model_weights/flower_model_weights.pth",
+            filename="flower_model_weights.pth",
         )
 
     if logger:
@@ -91,7 +91,7 @@ def load_ft_model(
     if not ft_model_path.exists():
         ft_model_path = hf_hub_download(
             repo_id="bengid/flower-classifier",
-            filename="model_weights/ft_EfficientNet-B0.pth",
+            filename="ft_EfficientNet-B0.pth",
         )
 
     if logger:

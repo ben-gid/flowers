@@ -513,7 +513,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.131.0" },
-    { name = "huggingface-hub", specifier = ">=1.5.0" },
+    { name = "huggingface-hub", extras = ["cli"], specifier = ">=1.5.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "pillow", specifier = ">=12.1.1" },
     { name = "pip", specifier = ">=26.0.1" },
