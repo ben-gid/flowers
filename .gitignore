@@ -51,3 +51,6 @@ full_pipeline/data/
 # OS
 .DS_Store
 Thumbs.db
+
+# file to upload model weights to hugging face
+push_weights_to_hf.sh
