@@ -19,7 +19,8 @@ sys.path.append(str(root_dir / "src"))
 def mock_api_startup():
     """Mock out model loading for all tests using TestClient lifespan."""
     with (
-        patch("flowers.api.load_model") as mock_load_model,
+        patch("flowers.api.load_scratch_model") as mock_load_scratch_model,
+        patch("flowers.api.load_ft_model") as mock_load_ft_model,
         patch("flowers.api.load_class_names") as mock_load_classes,
         patch("flowers.api.get_transforms") as mock_transforms,
         patch("builtins.open", MagicMock()),
@@ -31,7 +32,8 @@ def mock_api_startup():
             [[10.0, 0.0, 0.0]]
         )  # high score for class 0
 
-        mock_load_model.return_value = mock_model
+        mock_load_scratch_model.return_value = mock_model
+        mock_load_ft_model.return_value = mock_model
         mock_load_classes.return_value = ["rose", "daisy", "tulip"]
         mock_transforms.return_value = (None, lambda x: torch.zeros(3, 224, 224))
         yield
@@ -41,13 +43,16 @@ def test_lifespan_state_initialization(mock_api_startup):
     """Test that startup correctly populates app.state and shutdown clears it."""
     with TestClient(app):
         # Check if startup populated the state
-        assert hasattr(app.state, "model")
+        assert hasattr(app.state, "scratch_model")
+        assert hasattr(app.state, "ft_model")
         assert hasattr(app.state, "class_names")
         assert hasattr(app.state, "transform")
 
     # After exiting the context (shutdown), check if state is cleared
-    assert not hasattr(app.state, "model")
+    assert not hasattr(app.state, "scratch_model")
+    assert not hasattr(app.state, "ft_model")
     assert not hasattr(app.state, "class_names")
+    assert not hasattr(app.state, "transform")
 
 
 def create_mock_image(width=224, height=224, fmt="JPEG"):
@@ -73,6 +78,19 @@ def test_predict_success(mock_api_startup):
     with TestClient(app) as local_client:
         response = local_client.post(
             "/predict", files={"file": ("test.jpg", img_bytes, "image/jpeg")}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["prediction"] == "rose"
+        assert "confidence" in data
+
+
+def test_predict_scratch_success(mock_api_startup):
+    """Test the /predict/scratch endpoint with a valid image."""
+    img_bytes = create_mock_image(224, 224)
+    with TestClient(app) as local_client:
+        response = local_client.post(
+            "/predict/scratch", files={"file": ("test.jpg", img_bytes, "image/jpeg")}
         )
         assert response.status_code == 200
         data = response.json()

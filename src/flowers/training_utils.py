@@ -1,79 +1,15 @@
 import copy
-import os
-import sys
-from pathlib import Path
 
+import numpy as np
 import torch
+from sklearn.utils import compute_class_weight
 from torch import nn, optim
+from torch._tensor import Tensor
 from torch.utils.data import DataLoader, Dataset, random_split
 from torch.utils.data.dataset import Subset
-from torchvision import transforms
+from torchvision import models, transforms
 
-# Add 'src' directory to sys.path
-# Path(__file__).parent is src/flowers/
-sys.path.append(str(Path(__file__).parent.parent))
-
-try:
-    from .models import FlowerDataset, SimpleCNN, SubsetWithTransform
-except (ImportError, ValueError):
-    from models import FlowerDataset, SimpleCNN, SubsetWithTransform
-
-
-def main():
-    data_dir = Path(os.getcwd()) / "data"
-
-    device = get_device()
-
-    train_transform, val_transform = get_transforms()
-
-    dataset = FlowerDataset(data_dir)
-    train_dataset, val_dataset, test_dataset = split_dataset(dataset, 0.7, 0.15, 0.15)
-
-    train_dataset = SubsetWithTransform(train_dataset, train_transform)
-    val_dataset = SubsetWithTransform(val_dataset, val_transform)
-    test_dataset = SubsetWithTransform(test_dataset, val_transform)
-
-    batch_size = 64
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-
-    model, loss_function, optimizer = init_model()
-
-    num_epochs = 100
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=num_epochs, eta_min=0.0002
-    )
-
-    model, metrics = train(
-        model,
-        train_loader,
-        val_loader,
-        loss_function,
-        optimizer,
-        scheduler,
-        num_epochs,
-        device,
-    )
-
-    test_loss, test_accuracy = val_epoch(model, test_loader, loss_function, device)
-    print(f"{test_loss=}\n{test_accuracy=}\n\nTrain Metrics:{metrics}")
-    torch.save(model.state_dict(), "flower_model_weights.pth")
-
-
-def init_model():
-    # taken from notebook
-    # num_classes = len(dataset.classes)
-    # single_img_shape = train_dataset[0][0].shape
-    num_classes = 102
-    single_img_shape = torch.Size([3, 224, 224])
-    model = SimpleCNN(single_img_shape=single_img_shape, num_classes=num_classes)
-
-    loss_function = nn.CrossEntropyLoss()
-
-    optimizer = optim.Adam(model.parameters(), weight_decay=0.0005)
-
-    return model, loss_function, optimizer
+from flowers.models import FlowerDataset
 
 
 def get_device() -> torch.device:
@@ -88,6 +24,11 @@ def get_device() -> torch.device:
 
 
 def get_transforms() -> tuple[transforms.Compose, transforms.Compose]:
+    """transforms to prepare image for training
+
+    Returns:
+        tuple[transforms.Compose, transforms.Compose]: train_transform, val_transform
+    """
     # precalculated mean and std from notebook
     mean = torch.tensor([0.4727, 0.3996, 0.3193])
     std = torch.tensor([0.2965, 0.2471, 0.2812])
@@ -121,11 +62,22 @@ def get_transforms() -> tuple[transforms.Compose, transforms.Compose]:
 def split_dataset(
     dataset: Dataset, train_fraction: float, val_fraction: float, test_fraction: float
 ) -> tuple[Subset, Subset, Subset]:
-    train_dataset, val_dataset, test_dataset = random_split(
+    """splits the dataset into training, validation and testing Subsets
+
+    Args:
+        dataset (Dataset): original dataset
+        train_fraction (float): fraction of original dataset to be training subset
+        val_fraction (float): fraction of original dataset to be validation subset
+        test_fraction (float): fraction of original dataset to be testing subset
+
+    Returns:
+        tuple[Subset, Subset, Subset]: train_subset, val_subset, test_subset
+    """
+    train_subset, val_subset, test_subset = random_split(
         dataset, [train_fraction, val_fraction, test_fraction]
     )
 
-    return train_dataset, val_dataset, test_dataset
+    return train_subset, val_subset, test_subset
 
 
 def train_epoch(
@@ -195,7 +147,7 @@ def train(
     val_loader: DataLoader,
     loss_function: nn.CrossEntropyLoss,
     optimizer: optim.Adam,
-    scheduler,
+    scheduler: optim.lr_scheduler.LRScheduler | None,
     num_epochs: int,
     device: torch.device,
 ):
@@ -227,14 +179,13 @@ def train(
 
         # Print the metrics for the current epoch
         print(
-            f"Epoch [{epoch + 1}/{num_epochs}], "
-            f"Train Loss: {epoch_loss:.4f}, "
-            f"Val Loss: {epoch_val_loss:.4f}, "
-            f"Val Accuracy: {epoch_accuracy:.2f}%"
+            f"Epoch [{epoch + 1}/{num_epochs}], Train Loss: {epoch_loss:.4f}, \
+                Val Loss: {epoch_val_loss:.4f}, Val Accuracy: {epoch_accuracy:.2f}%"
         )
 
         # Update the learning rate
-        scheduler.step()
+        if scheduler is not None:
+            scheduler.step()
 
         # Check if the current model is the best one so far
         if epoch_accuracy > best_val_accuracy:
@@ -248,8 +199,8 @@ def train(
     # Load the best model weights before returning
     if best_model_state:
         print(
-            f"\n--- Returning best model with {best_val_accuracy:.2f}% "
-            f"validation accuracy, achieved at epoch {best_epoch} ---"
+            f"\n--- Returning best model with {best_val_accuracy:.2f}% validation \
+                accuracy, achieved at epoch {best_epoch} ---"
         )
         model.load_state_dict(best_model_state)
 
@@ -260,5 +211,88 @@ def train(
     return model, metrics
 
 
-if __name__ == "__main__":
-    main()
+# ============= from fine_tune.ipynb ===========
+
+
+def get_class_weights(dataset: FlowerDataset, device: torch.device) -> Tensor:
+    """computes class weight distribution for uneven dataset
+
+    Args:
+        dataset (FlowerDataset): custom oxford flower 102 dataset
+        device (torch.device): device
+
+    Returns:
+        Tensor: class weights
+    """
+    labels = dataset.labels
+    classes = np.unique(labels)
+    class_weights = compute_class_weight(
+        class_weight="balanced", classes=classes, y=labels
+    )
+    # convert to tensor
+    class_weights = torch.tensor(class_weights, dtype=torch.float).to(device)
+    return class_weights
+
+
+def change_classifier(model: models.EfficientNet, num_classes: int) -> nn.Module:
+    """freezes all parameters of the model,
+    changes the classifiers out_features to num classes
+    unfreezes the classifier for fine tuning
+
+    Args:
+        model (models.EfficientNet): model to update
+        num_classes (int): number of classes in dataset
+
+    Returns:
+        nn.Module: updated model
+    """
+    for param in model.parameters():
+        param.requires_grad = False
+
+        old_classifier = model.classifier
+
+        new_classifier_lin_lay = nn.Linear(old_classifier[1].in_features, num_classes)  # type: ignore
+
+        model.classifier[1] = new_classifier_lin_lay
+        for param in model.classifier.parameters():
+            param.requires_grad = True
+    return model
+
+
+def partial_freeze(
+    model: models.EfficientNet, layers_to_unfreeze: int
+) -> models.EfficientNet:
+    """partially freeze layers, classifier will be unfrozen
+
+    Args:
+        model (models.EfficientNet): model to partially freeze
+        layers_to_unfreeze (int): number of last layers to unfreeze
+
+    Returns:
+        nn.Module: updated model
+    """
+    # freeze all layers
+    for param in model.parameters():
+        param.requires_grad = False
+
+    conv_layers = model.features
+
+    # unfreeze layers in reverse
+    for i in range(layers_to_unfreeze):
+        layer_to_unfreeze = conv_layers[-(i + 1)]
+
+        for param in layer_to_unfreeze.parameters():
+            param.requires_grad = True
+
+    # unfreeze classifier
+    for param in model.classifier.parameters():
+        param.requires_grad = True
+
+    # verify
+    for idx, feat in enumerate(model.features):
+        if any(param.requires_grad for param in feat.parameters()):
+            print(f"layer {idx} requires grad")
+    if all(param.requires_grad for param in model.classifier.parameters()):
+        print("classifier requires grad")
+
+    return model

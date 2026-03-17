@@ -1,6 +1,6 @@
 from .api import app
 from .models import FlowerDataset, SimpleCNN, SubsetWithTransform
-from .train import get_transforms, init_model
+from .train_scratch import get_transforms, init_model
 
 __all__ = [
     "FlowerDataset",

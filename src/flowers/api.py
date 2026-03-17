@@ -16,11 +16,12 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 
 try:
-    from .train import get_transforms
-    from .utils import init_logger, load_class_names, load_model
+    from .training_utils import get_transforms
+    from .utils import init_logger, load_class_names, load_ft_model, load_scratch_model
 except (ImportError, ValueError):
-    from train import get_transforms
-    from utils import init_logger, load_class_names, load_model
+    from utils import init_logger, load_class_names, load_ft_model, load_scratch_model
+
+    from flowers.training_utils import get_transforms
 
 logger = init_logger(__name__)
 
@@ -42,19 +43,22 @@ async def lifespan(app: FastAPI):
     app.state.class_names = load_class_names(logger)
 
     # load model on startup
-    model = load_model(logger)
+    scratch_model = load_scratch_model(logger)
+    ft_model = load_ft_model(logger)
 
     logger.info("Loading Transform...")
     _, val_transform = get_transforms()
 
-    app.state.model = model
+    app.state.scratch_model = scratch_model
+    app.state.ft_model = ft_model
     logger.info("Model loaded")
     app.state.transform = val_transform
     logger.info("Transform loaded")
     yield
 
     del app.state.class_names
-    del app.state.model
+    del app.state.scratch_model
+    del app.state.ft_model
     del app.state.transform
     logger.info("Model, Transform, and Class Names cleared from memory.")
 
@@ -126,14 +130,103 @@ async def predict(
         ) from e
 
     # get device
-    device = next(app.state.model.parameters()).device
+    device = next(app.state.ft_model.parameters()).device
 
     # transform image to tensor and add batch dimension and move to device
     transform_img = app.state.transform(img).unsqueeze(0).to(device)
 
     # make prediction
     with torch.no_grad():
-        prediction: Tensor = app.state.model(transform_img)
+        prediction: Tensor = app.state.ft_model(transform_img)
+
+    # get class name
+    classification = int(prediction.argmax().item())
+    class_name = app.state.class_names[classification]
+
+    # get confidence
+    confidence = F.softmax(prediction, dim=1)[0][classification].item()
+
+    return PredictionResponse(
+        filename=file.filename or "unknown",
+        content_type=file.content_type,
+        prediction=class_name,
+        confidence=confidence,
+    )
+
+
+@app.post(
+    "/predict/scratch",
+    summary="Predict flower image with scratch model",
+    description="""Upload an image of a flower
+        and get the predicted class using the CNN trained from scratch""",
+    response_model=PredictionResponse,
+    responses={
+        200: {
+            "description": "Prediction successful",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "filename": "rose.jpg",
+                        "content_type": "image/jpeg",
+                        "prediction": "rose",
+                    }
+                }
+            },
+        },
+        400: {"description": "Invalid file type"},
+        413: {"description": "File too large"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def predict_scratch(
+    file: UploadFile = File(
+        description="Upload an image of a flower",
+        content_type="image/jpeg, image/png, image/jpg",
+    ),
+):
+    # validate file extension
+    if file.content_type not in IMG_EXT:
+        logger.warning(f"Invalid file type. Allowed: {IMG_EXT}")
+        raise HTTPException(
+            status_code=400, detail=f"Invalid file type. Allowed: {IMG_EXT}"
+        )
+
+    # validate file size
+    if file.size is not None and file.size > MAX_FILE_SIZE:
+        logger.warning(f"File too large. Maximum size: {MAX_FILE_SIZE}")
+        raise HTTPException(status_code=413, detail="File too large")
+
+    # read file to memory
+    file_contents = await file.read()
+
+    # convert to PIL image
+    try:
+        img = Image.open(io.BytesIO(file_contents)).convert("RGB")
+
+        # validate image size
+        if img.size[0] < MIN_IMG_SIZE or img.size[1] < MIN_IMG_SIZE:
+            logger.warning(
+                f"Image too small. Minimum size: {MIN_IMG_SIZE}x{MIN_IMG_SIZE}"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=f"Image too small. Minimum size: {MIN_IMG_SIZE}x{MIN_IMG_SIZE}",
+            )
+    except Exception as e:
+        logger.warning(f"Invalid image file: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Invalid image file: {str(e)}"
+        ) from e
+
+    # get device
+    device = next(app.state.scratch_model.parameters()).device
+
+    # transform image to tensor and add batch dimension and move to device
+    transform_img = app.state.transform(img).unsqueeze(0).to(device)
+
+    # make prediction
+    with torch.no_grad():
+        prediction: Tensor = app.state.scratch_model(transform_img)
 
     # get class name
     classification = int(prediction.argmax().item())
@@ -154,7 +247,8 @@ async def predict(
 async def health():
     return {
         "status": "ok",
-        "model_loaded": hasattr(app.state, "model"),
+        "scratch_model_loaded": hasattr(app.state, "scratch_model"),
+        "fine_tuned_model_loaded": hasattr(app.state, "ft_model"),
         "class_names_loaded": hasattr(app.state, "class_names"),
         "transform_loaded": hasattr(app.state, "transform"),
     }

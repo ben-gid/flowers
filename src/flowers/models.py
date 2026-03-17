@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 from PIL import Image
 from scipy.io import loadmat
@@ -9,7 +10,7 @@ from torch import nn
 from torch._tensor import Tensor
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import Subset
-from torchvision import datasets, transforms
+from torchvision import transforms
 
 
 # create custom flower dataset
@@ -21,9 +22,14 @@ class FlowerDataset(Dataset):
 
         # Download dataset if not found
         if not self.flowers_path.exists():
-            print(f"Dataset not found at {self.flowers_path}. Downloading...")
+            print(
+                f"Dataset not found at {self.flowers_path}. \
+                Downloading using torchvision..."
+            )
+            from torchvision import datasets
 
-            # Download and extract the dataset files into root_dir/flowers-102
+            # This will download and extract the .mat and .jpg files into
+            # root_dir/flowers-102
             # We call it once to trigger the download logic
             datasets.Flowers102(root=str(root_dir), split="train", download=True)
             datasets.Flowers102(root=str(root_dir), split="test", download=True)
@@ -40,6 +46,7 @@ class FlowerDataset(Dataset):
     def __getitem__(self, idx) -> tuple[Any, int]:
         if torch.is_tensor(idx):
             idx = idx.item()
+        idx = int(idx)
         image = self.get_image(idx)
 
         # apply optional transform
@@ -50,10 +57,15 @@ class FlowerDataset(Dataset):
 
         return image, label
 
-    def load_labels(self):
+    def load_labels(self) -> np.ndarray:
+        """gets all the labels from the dataset
+
+        Returns:
+            _type_: _description_
+        """
         self.labels_mat = loadmat(self.flowers_path / "imagelabels.mat")
         # subtract one from labels to make them 0 indexed
-        labels = self.labels_mat["labels"][0] - 1
+        labels: np.ndarray = self.labels_mat["labels"][0] - 1
         return labels
 
     def get_image(self, idx):
