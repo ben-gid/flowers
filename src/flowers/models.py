@@ -10,7 +10,7 @@ from torch import nn
 from torch._tensor import Tensor
 from torch.utils.data import Dataset
 from torch.utils.data.dataset import Subset
-from torchvision import transforms
+from torchvision import datasets, transforms
 
 
 # create custom flower dataset
@@ -26,8 +26,6 @@ class FlowerDataset(Dataset):
                 f"Dataset not found at {self.flowers_path}. \
                 Downloading using torchvision..."
             )
-            from torchvision import datasets
-
             # This will download and extract the .mat and .jpg files into
             # root_dir/flowers-102
             # We call it once to trigger the download logic
