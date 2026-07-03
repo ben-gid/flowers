@@ -249,13 +249,13 @@ def change_classifier(model: models.EfficientNet, num_classes: int) -> nn.Module
     for param in model.parameters():
         param.requires_grad = False
 
-        old_classifier = model.classifier
+    old_classifier = model.classifier
 
-        new_classifier_lin_lay = nn.Linear(old_classifier[1].in_features, num_classes)  # type: ignore
+    new_classifier_lin_lay = nn.Linear(old_classifier[1].in_features, num_classes)  # type: ignore
 
-        model.classifier[1] = new_classifier_lin_lay
-        for param in model.classifier.parameters():
-            param.requires_grad = True
+    model.classifier[1] = new_classifier_lin_lay
+    for param in model.classifier.parameters():
+        param.requires_grad = True
     return model
 
 
