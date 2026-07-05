@@ -264,3 +264,15 @@ The API auto-downloads weights from HuggingFace Hub if not found locally:
 |---|---|---|
 | `MODEL_PATH` | `./model_weights/flower_model_weights.pth` | Path to SimpleCNN weights |
 | `DATA_ROOT` | `./data` | Path to dataset root |
+
+---
+
+## Roadmap
+
+- [ ] Update model to fully unfreeze the backbone
+- [ ] Experiment with other model architectures
+- [ ] Rearrange the API to make it scalable (separate routers, environment variables, etc.)
+- [ ] Use MLflow for model documentation
+- [ ] Add model card(s)
+- [ ] Add a CLI
+- [ ] Deploy the API
