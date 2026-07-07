@@ -78,6 +78,30 @@ docker run -p 8000:8000 flower-api
 
 ---
 
+## Roadmap
+### Model experiments
+- [ ] Migrate training pipeline to PyTorch Lightning
+  - [ ] Refactor dataset logic into a reusable `LightningDataModule`.
+  - [ ] Replace custom training loops with `LightningModule` and the built-in `Trainer`.
+  - [ ] Use `MLFlowLogger` for seamless metric and hyperparameter tracking.
+  - [ ] Utilize built-in fine-tuning callbacks for stage-based unfreezing.
+- [ ] Use MLflow for model documentation and tracking experiment results
+  - [ ] Set up MLflow as a Model Registry to version weights and manage model lifecycle.
+- [ ] Update model to fully unfreeze the backbone
+- [ ] Experiment with other model architectures
+- [ ] Add model card(s)
+
+### API improvement
+- [ ] Rearrange the API to make it scalable (separate routers, environment variables, etc.)
+- [ ] Implement API rate limiting and security
+  - [ ] Integrate a rate limiter (e.g., `slowapi`) to prevent abuse and manage load.
+  - [ ] Add robust authentication (API keys or OAuth2).
+### Other
+- [ ] Add a CLI
+- [ ] Deploy the API
+
+---
+
 ## Dataset
 
 The project uses the **Oxford 102 Flower** dataset, consisting of 8,189 images across 102 flower categories.
@@ -264,15 +288,3 @@ The API auto-downloads weights from HuggingFace Hub if not found locally:
 |---|---|---|
 | `MODEL_PATH` | `./model_weights/flower_model_weights.pth` | Path to SimpleCNN weights |
 | `DATA_ROOT` | `./data` | Path to dataset root |
-
----
-
-## Roadmap
-
-- [ ] Update model to fully unfreeze the backbone
-- [ ] Experiment with other model architectures
-- [ ] Rearrange the API to make it scalable (separate routers, environment variables, etc.)
-- [ ] Use MLflow for model documentation
-- [ ] Add model card(s)
-- [ ] Add a CLI
-- [ ] Deploy the API
