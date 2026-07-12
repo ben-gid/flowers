@@ -48,7 +48,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["PLR2004"]
-"notbooks/*" = ["ALL"] # Ignore notebooks for now as they are experimental
+"notebooks/*" = ["ALL"] # Ignore notebooks for now as they are experimental
 
 [tool.pyright]
 include = ["src"]
