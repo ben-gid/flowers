@@ -1,0 +1,222 @@
+import os
+from typing import Any
+
+import lightning as L
+import torch
+from matplotlib import pyplot as plt
+from torch import nn, optim
+from torch.optim.lr_scheduler import CosineAnnealingLR, LRScheduler
+from torchmetrics import F1Score
+from torchmetrics.classification import Accuracy, MulticlassConfusionMatrix
+
+
+class FlowerClassifier(L.LightningModule):
+    """LightningModule for flower classification using a pretrained backbone."""
+
+    def __init__(
+        self,
+        pretrained_model: nn.Module,
+        num_classes: int,
+        class_weights: torch.Tensor | None,
+        lr_head: float = 1e-3,
+        optimizer: type[optim.Optimizer] = optim.AdamW,
+        scheduler: type[LRScheduler] = CosineAnnealingLR,
+        class_names: list[str] | None = None,
+    ) -> None:
+        """Initializes the FlowerClassifier module.
+
+        Args:
+            pretrained_model (nn.Module): The pretrained PyTorch model
+                (e.g., from torchvision).
+            num_classes (int): Number of target classes.
+            class_weights (torch.Tensor | None): Optional tensor of weights for the
+                cross-entropy loss.
+            lr_head (float, optional): Learning rate for the classification head.
+                Defaults to 1e-3.
+            optimizer (type[optim.Optimizer], optional): Optimizer class to use.
+                Defaults to optim.AdamW.
+            scheduler (type[LRScheduler], optional): Learning rate scheduler class.
+                Defaults to CosineAnnealingLR.
+            class_names (list[str] | None, optional): List of class names.
+                Defaults to None.
+        """
+        super().__init__()
+        self.save_hyperparameters(
+            "lr_head", "num_classes", ignore=["backbone", "class_weights"]
+        )
+        self.register_buffer(
+            "class_weights",
+            class_weights if class_weights is not None else torch.ones(num_classes),
+        )
+        self.model = pretrained_model
+        # replace classifier
+        self.model.classifier[1] = nn.Linear(  # type: ignore
+            pretrained_model.classifier[1].in_features,  # type: ignore
+            num_classes,
+        )
+        self.optimizer = optimizer
+        self.lr_scheduler = scheduler
+
+        self.criterion = nn.CrossEntropyLoss(weight=class_weights)
+
+        self.class_names = class_names or [str(i) for i in range(num_classes)]
+
+        self.train_acc = Accuracy("multiclass", num_classes=num_classes)
+        self.train_f1 = F1Score("multiclass", num_classes=num_classes, average="macro")
+
+        self.val_acc = Accuracy("multiclass", num_classes=num_classes)
+        self.val_f1 = F1Score("multiclass", num_classes=num_classes, average="macro")
+        self.val_conf_mat = MulticlassConfusionMatrix(num_classes=num_classes)
+
+        self.test_acc = Accuracy("multiclass", num_classes=num_classes)
+        self.test_f1 = F1Score("multiclass", num_classes=num_classes, average="macro")
+        self.test_conf_mat = MulticlassConfusionMatrix(num_classes=num_classes)
+        self.test_per_class_f1 = F1Score(
+            task="multiclass", num_classes=num_classes, average=None
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Performs a forward pass through the model.
+
+        Args:
+            x (torch.Tensor): Input image tensor.
+
+        Returns:
+            torch.Tensor: Model logits.
+        """
+        return self.model(x)
+
+    def training_step(self, batch, batch_idx) -> torch.Tensor:
+        """Executes a single training step.
+
+        Args:
+            batch (tuple[torch.Tensor, torch.Tensor]): A tuple of (images, labels).
+            batch_idx (int): Index of the current batch.
+
+        Returns:
+            torch.Tensor: The computed loss for the batch.
+        """
+        x, y = batch
+        logits = self(x)
+        loss = self.criterion(logits, y)
+
+        self.log("train_loss", loss, on_epoch=True, prog_bar=True)
+        self.log("train_acc", self.train_acc(logits, y), on_epoch=True, prog_bar=True)
+        self.log("train_f1", self.train_f1(logits, y), prog_bar=True)
+
+        return loss
+
+    def validation_step(self, batch, batch_idx) -> torch.Tensor:
+        """Executes a single validation step.
+
+        Args:
+            batch (tuple[torch.Tensor, torch.Tensor]): A tuple of (images, labels).
+            batch_idx (int): Index of the current batch.
+
+        Returns:
+            torch.Tensor: The computed loss for the batch.
+        """
+        x, y = batch
+        logits = self(x)
+        loss = self.criterion(logits, y)
+
+        self.log("val_loss", loss, prog_bar=True)
+        self.log("val_acc", self.val_acc(logits, y), prog_bar=True)
+        self.log("val_f1", self.val_f1(logits, y), prog_bar=True)
+
+        preds = torch.argmax(logits, dim=1)
+        self.val_conf_mat.update(preds, y)
+        return loss
+
+    def on_validation_epoch_end(self) -> None:
+        """Logs the confusion matrix at the end of the validation epoch."""
+        self._log_confmat(self.val_conf_mat, stage="val")
+        self.val_conf_mat.reset()
+
+    def test_step(self, batch, batch_idx) -> torch.Tensor:
+        """Executes a single test step.
+
+        Args:
+            batch (tuple[torch.Tensor, torch.Tensor]): A tuple of (images, labels).
+            batch_idx (int): Index of the current batch.
+
+        Returns:
+            torch.Tensor: The computed loss for the batch.
+        """
+        x, y = batch
+        logits = self(x)
+        loss = self.criterion(logits, y)
+
+        self.log("test_loss", loss, prog_bar=True)
+        self.log("test_acc", self.test_acc(logits, y), prog_bar=True)
+        self.log("test_f1", self.test_f1(logits, y), prog_bar=True)
+        self.log("test_per_class_f1", self.test_per_class_f1(logits, y), prog_bar=True)
+
+        preds = torch.argmax(logits, dim=1)
+        self.test_conf_mat.update(preds, y)
+        return loss
+
+    def on_test_epoch_end(self) -> None:
+        """Logs the confusion matrix at the end of the test epoch."""
+        self._log_confmat(self.test_conf_mat, stage="test")
+        self.test_conf_mat.reset()
+
+    def configure_optimizers(self) -> dict[str, Any]:
+        """Configures the optimizer and learning rate scheduler.
+
+        Returns:
+            dict[str, Any]: A dictionary containing the configured optimizer and
+            scheduler.
+        """
+        # first only classifier params
+        optimizer = self.optimizer(
+            self.model.classifier.parameters(),  # type: ignore
+            lr=self.hparams.lr_head,  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue]
+        )
+
+        assert isinstance(self.trainer.max_epochs, int)
+        scheduler_kwargs: dict[str, Any] = {"T_max": self.trainer.max_epochs}
+        init_params = self.lr_scheduler.__init__.__code__.co_varnames
+        if "eta_min" in init_params:
+            scheduler_kwargs["eta_min"] = 1e-6
+        elif "min_lr" in init_params:
+            scheduler_kwargs["min_lr"] = 1e-6
+
+        lr_scheduler = self.lr_scheduler(optimizer, **scheduler_kwargs)
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": lr_scheduler,
+            "interval": "epoch",
+            "monitor": "val_loss",
+        }
+
+    def _log_confmat(self, metric: MulticlassConfusionMatrix, stage: str) -> None:
+        """Logs a confusion matrix figure to the logger.
+
+        Args:
+            metric (MulticlassConfusionMatrix): The confusion matrix metric to plot.
+            stage (str): The current stage (e.g., 'val' or 'test').
+        """
+        fig, ax = metric.plot(labels=self.class_names)
+        ax.set_title(f"{stage} confusion matrix - epoch {self.current_epoch}")
+
+        # some Logger implementations (or static analysis) may not expose
+        # `experiment` or `run_id`. Guard access to avoid attribute errors.
+        experiment = getattr(self.logger, "experiment", None)
+        if experiment is None:
+            return
+
+        log_kwargs = {
+            "figure": fig,
+            "artifact_file": os.path.join(
+                "confusion_matrices", f"{stage}_epoch_{self.current_epoch}.png"
+            ),
+        }
+        run_id = getattr(self.logger, "run_id", None)
+        if run_id is not None:
+            log_kwargs["run_id"] = run_id
+
+        experiment.log_figure(**log_kwargs)
+        # remove fig from memory
+        plt.close(fig)

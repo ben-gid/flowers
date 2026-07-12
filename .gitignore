@@ -54,3 +54,9 @@ Thumbs.db
 
 # file to upload model weights to hugging face
 push_weights_to_hf.sh
+
+# model weights/checkpoints
+artifacts
+models_checkpoints
+model_weights
+mlflow.db
