@@ -19,9 +19,13 @@ try:
     from .training_utils import get_transforms
     from .utils import init_logger, load_class_names, load_ft_model, load_scratch_model
 except (ImportError, ValueError):
-    from utils import init_logger, load_class_names, load_ft_model, load_scratch_model
-
     from flowers.training_utils import get_transforms
+    from flowers.utils import (
+        init_logger,
+        load_class_names,
+        load_ft_model,
+        load_scratch_model,
+    )
 
 logger = init_logger(__name__)
 

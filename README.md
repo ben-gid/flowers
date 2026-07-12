@@ -80,15 +80,15 @@ docker run -p 8000:8000 flower-api
 
 ## Roadmap
 ### Model experiments
-- [ ] Migrate training pipeline to PyTorch Lightning
-  - [ ] Refactor dataset logic into a reusable `LightningDataModule`.
-  - [ ] Replace custom training loops with `LightningModule` and the built-in `Trainer`.
-  - [ ] Use `MLFlowLogger` for seamless metric and hyperparameter tracking.
-  - [ ] Utilize built-in fine-tuning callbacks for stage-based unfreezing.
-- [ ] Use MLflow for model documentation and tracking experiment results
-  - [ ] Set up MLflow as a Model Registry to version weights and manage model lifecycle.
-- [ ] Update model to fully unfreeze the backbone
-- [ ] Experiment with other model architectures
+- [x] Migrate training pipeline to PyTorch Lightning
+  - [x] Refactor dataset logic into a reusable `LightningDataModule`.
+  - [x] Replace custom training loops with `LightningModule` and the built-in `Trainer`.
+  - [x] Use `MLFlowLogger` for seamless metric and hyperparameter tracking.
+  - [x] Utilize built-in fine-tuning callbacks for stage-based unfreezing.
+- [x] Use MLflow for model documentation and tracking experiment results
+  - [x] Set up MLflow as a Model Registry to version weights and manage model lifecycle.
+- [x] Update model to fully unfreeze the backbone
+- [x] Experiment with other model architectures
 - [ ] Add model card(s)
 
 ### API improvement
