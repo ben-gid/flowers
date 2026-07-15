@@ -1,0 +1,171 @@
+/* ── Reset & base ─────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #121212;
+  --glass: rgba(255,255,255,.06);
+  --glass-border: rgba(255,255,255,.12);
+  --glass-hover: rgba(255,255,255,.10);
+  --text: #ffffff;
+  --text-dim: #b0b0cc;
+  --accent: #7c6aef;
+  --accent-glow: rgba(124,106,239,.35);
+  --success: #34d399;
+  --danger: #f87171;
+  --warn: #fbbf24;
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+
+html { font-size: 15px; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.55;
+}
+
+
+
+/* ── Layout ───────────────────────────────────────────────────────────── */
+.container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+/* ── Nav ──────────────────────────────────────────────────────────────── */
+nav {
+  display: flex; align-items: center; gap: 1.5rem;
+  padding: 1rem 2rem;
+  background: var(--glass);
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--glass-border);
+  position: sticky; top: 0; z-index: 100;
+}
+nav .logo { font-weight: 700; font-size: 1.15rem; letter-spacing: -.02em; }
+nav .logo span { color: var(--accent); }
+nav a {
+  color: var(--text-dim); text-decoration: none; font-weight: 500;
+  transition: color .2s;
+}
+nav a:hover, nav a.active { color: var(--text); }
+
+/* ── Glass card ───────────────────────────────────────────────────────── */
+.card {
+  background: var(--glass);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  padding: 2rem;
+  transition: background .2s;
+}
+.card:hover { background: var(--glass-hover); }
+
+h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 1.5rem; }
+h2 { font-weight: 700; margin: 1.5rem 0 .75rem; color: var(--text); text-transform: uppercase; letter-spacing: .04em; font-size: .95rem; }
+
+/* ── Form ─────────────────────────────────────────────────────────────── */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+.field { display: flex; flex-direction: column; gap: .35rem; }
+.field label {
+  font-size: .78rem; font-weight: 500; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.field input, .field select {
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: .6rem .85rem;
+  color: var(--text);
+  font-family: inherit; font-size: .92rem;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.field input:focus, .field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.field select option { background: #1a1a2e; }
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  padding: .7rem 1.8rem;
+  border: none; border-radius: var(--radius-sm);
+  font-family: inherit; font-weight: 600; font-size: .92rem;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .2s, background .2s;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+.btn-primary:hover { background: #6b59de; }
+
+/* ── Table ─────────────────────────────────────────────────────────────── */
+.runs-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+.runs-table th {
+  text-align: left; font-size: .72rem; font-weight: 600;
+  color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em;
+  padding: .6rem .8rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+.runs-table td {
+  padding: .65rem .8rem;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  font-size: .88rem;
+  white-space: nowrap;
+}
+.runs-table tbody tr { transition: background .15s; }
+.runs-table tbody tr:hover { background: var(--glass-hover); }
+.runs-table a { color: var(--accent); text-decoration: none; font-weight: 700; }
+.runs-table a:hover { text-decoration: underline; }
+
+/* status badges */
+.badge {
+  display: inline-block; padding: .15rem .55rem;
+  border-radius: 6px; font-size: .72rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.badge-finished { background: rgba(52,211,153,.15); color: var(--success); }
+.badge-running  { background: rgba(59,130,246,.15); color: #60a5fa; }
+.badge-failed   { background: rgba(248,113,113,.15); color: var(--danger); }
+.badge-killed   { background: rgba(251,191,36,.15); color: var(--warn); }
+
+/* ── Run detail ───────────────────────────────────────────────────────── */
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: .8rem;
+}
+.detail-item {
+  background: rgba(255,255,255,.03);
+  border-radius: var(--radius-sm);
+  padding: .75rem 1rem;
+}
+.detail-item .label { font-size: .72rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .2rem; }
+.detail-item .value { font-size: 1rem; font-weight: 600; }
+
+/* ── Flash / alerts ───────────────────────────────────────────────────── */
+.flash {
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1.5rem;
+  font-weight: 500;
+}
+.flash-info    { background: rgba(124,106,239,.12); border: 1px solid rgba(124,106,239,.25); }
+.flash-success { background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.25); }
+.flash-error   { background: rgba(248,113,113,.12); border: 1px solid rgba(248,113,113,.25); color: var(--danger); }
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .form-grid { grid-template-columns: 1fr; }
+  nav { padding: .8rem 1rem; gap: 1rem; }
+  .runs-table { font-size: .82rem; }
+}

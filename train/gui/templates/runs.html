@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Runs - Flowers Training{% endblock %}
+{% block content %}
+<h1>Training Runs</h1>
+<div class="card">
+  <table class="runs-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Status</th>
+        <th>Start Time</th>
+        <th>End Time</th>
+        <th>Run ID</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for run in runs %}
+      <tr>
+        <td><a href="/run/{{ run.run_uuid }}">{{ run.name }}</a></td>
+        <td><span class="badge badge-{{ run.status|lower }}">{{ run.status }}</span></td>
+        <td>{{ run.start_time }}</td>
+        <td>{{ run.end_time }}</td>
+        <td style="font-family: monospace; font-size: .8rem; color: var(--text-dim);">{{ run.run_uuid[:8] }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5" style="text-align: center; color: var(--text-dim); padding: 2rem;">No runs found.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

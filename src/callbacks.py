@@ -1,7 +1,7 @@
 from lightning.pytorch.callbacks import BaseFinetuning
 from torch.optim import Optimizer
 
-from classifier import FlowerClassifier
+from .classifier import FlowerClassifier
 
 
 class BackboneFinetuning(BaseFinetuning):
@@ -14,6 +14,7 @@ class BackboneFinetuning(BaseFinetuning):
         unfreeze_at_epoch: int = 5,
         lr_backbone: float = 1e-5,
         new_lr_head: float | None = None,
+        backbone_name: str | None = "features",
     ) -> None:
         """Initializes the BackboneFinetuning callback.
 
@@ -25,11 +26,14 @@ class BackboneFinetuning(BaseFinetuning):
             new_lr_head (float | None, optional):
                 Optional new learning rate for the classification head.
                 Defaults to None.
+            backbone_name (str | None, optional): Name of the backbone module.
+                Defaults to "features".
         """
         super().__init__()
         self.unfreeze_at_epoch = unfreeze_at_epoch
         self.lr_backbone = lr_backbone
         self.new_lr_head = new_lr_head
+        self.backbone_name = backbone_name
 
     def freeze_before_training(self, pl_module: FlowerClassifier) -> None:
         """Freezes the backbone for phase 1 of training.
@@ -37,7 +41,12 @@ class BackboneFinetuning(BaseFinetuning):
         Args:
             pl_module (FlowerClassifier): The LightningModule containing the model.
         """
-        self.freeze(pl_module.model.features)
+        if self.backbone_name is not None:
+            modules = getattr(pl_module.model, self.backbone_name)
+        else:
+            head = getattr(pl_module.model, pl_module.hparams.head_name)  # type: ignore
+            modules = [m for m in pl_module.model.children() if m is not head]
+        self.freeze(modules)
 
     def finetune_function(
         self, pl_module: FlowerClassifier, epoch: int, optimizer: Optimizer
@@ -50,8 +59,14 @@ class BackboneFinetuning(BaseFinetuning):
             optimizer (Optimizer): The optimizer used for training.
         """
         if epoch == self.unfreeze_at_epoch:
+            if self.backbone_name is not None:
+                modules = getattr(pl_module.model, self.backbone_name)
+            else:
+                head = getattr(pl_module.model, pl_module.hparams.head_name)  # type: ignore
+                modules = [m for m in pl_module.model.children() if m is not head]
+
             self.unfreeze_and_add_param_group(
-                modules=pl_module.model.features,
+                modules=modules,
                 optimizer=optimizer,
                 lr=self.lr_backbone,
             )

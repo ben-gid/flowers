@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Run {{ run.name }} - Flowers Training{% endblock %}
+{% block content %}
+<div style="margin-bottom: 1rem;">
+  <a href="/runs" style="color: var(--text-dim); text-decoration: none; font-size: .9rem;">&larr; Back to Runs</a>
+</div>
+
+<h1>{{ run.name }}</h1>
+<div style="margin-bottom: 2rem;">
+  <span class="badge badge-{{ run.status|lower }}">{{ run.status }}</span>
+  <span style="color: var(--text-dim); margin-left: .5rem; font-family: monospace;">{{ run.run_uuid }}</span>
+</div>
+
+<div class="card" style="margin-bottom: 1.5rem;">
+  <h2>Metrics</h2>
+  <div class="detail-grid">
+    {% for key, val in metrics.items() %}
+    <div class="detail-item">
+      <div class="label">{{ key }}</div>
+      <div class="value">{{ "%.4f"|format(val) if val is float else val }}</div>
+    </div>
+    {% else %}
+    <div style="color: var(--text-dim); grid-column: 1/-1;">No metrics logged yet.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Parameters</h2>
+  <div class="detail-grid">
+    {% for key, val in params.items() %}
+    <div class="detail-item">
+      <div class="label">{{ key }}</div>
+      <div class="value">{{ val }}</div>
+    </div>
+    {% else %}
+    <div style="color: var(--text-dim); grid-column: 1/-1;">No parameters found.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

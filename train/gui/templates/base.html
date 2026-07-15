@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Flowers Training{% endblock %}</title>
+  <meta name="description" content="Flower classifier training dashboard">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <nav>
+    <div class="logo">🌸 <span>Flowers</span></div>
+    <a href="/" class="{% if active == 'train' %}active{% endif %}">Train</a>
+    <a href="/runs" class="{% if active == 'runs' %}active{% endif %}">Runs</a>
+  </nav>
+  <main class="container">
+    {% with messages = get_flashed_messages(request, with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="flash flash-{{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

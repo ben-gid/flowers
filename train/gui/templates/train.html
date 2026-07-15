@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Launch Training{% endblock %}
+{% block content %}
+<h1>Launch Training Run</h1>
+<form method="post" action="/">
+  <div class="card">
+    <h2>Experiment</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label for="exp_name">Experiment Name</label>
+        <input id="exp_name" name="exp_name" value="{{ defaults.exp_name }}">
+      </div>
+    </div>
+
+    <h2>Model &amp; Components</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label for="pretrained_model">Pretrained Model</label>
+        <select id="pretrained_model" name="pretrained_model">
+          {% for m in choices.models %}
+            <option value="{{ m }}" {% if m == defaults.pretrained_model %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="optimizer">Optimizer</label>
+        <select id="optimizer" name="optimizer">
+          {% for o in choices.optimizers %}
+            <option value="{{ o }}" {% if o == defaults.optimizer %}selected{% endif %}>{{ o }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="scheduler">Scheduler</label>
+        <select id="scheduler" name="scheduler">
+          {% for s in choices.schedulers %}
+            <option value="{{ s }}" {% if s == defaults.scheduler %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="precision">Precision</label>
+        <select id="precision" name="precision">
+          {% for p in choices.precisions %}
+            <option value="{{ p }}" {% if p == defaults.precision %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <h2>Learning Rates</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label for="lr_head_stage_1">LR Head Stage 1</label>
+        <input id="lr_head_stage_1" name="lr_head_stage_1" type="number" step="any" value="{{ defaults.lr_head_stage_1 }}">
+      </div>
+      <div class="field">
+        <label for="lr_head_stage_2">LR Head Stage 2</label>
+        <input id="lr_head_stage_2" name="lr_head_stage_2" type="number" step="any" value="{{ defaults.lr_head_stage_2 }}">
+      </div>
+      <div class="field">
+        <label for="lr_backbone">LR Backbone</label>
+        <input id="lr_backbone" name="lr_backbone" type="number" step="any" value="{{ defaults.lr_backbone }}">
+      </div>
+    </div>
+
+    <h2>Training Schedule</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label for="max_epochs">Max Epochs</label>
+        <input id="max_epochs" name="max_epochs" type="number" value="{{ defaults.max_epochs }}">
+      </div>
+      <div class="field">
+        <label for="batch_size">Batch Size</label>
+        <input id="batch_size" name="batch_size" type="number" value="{{ defaults.batch_size }}">
+      </div>
+      <div class="field">
+        <label for="unfreeze_at_epoch">Unfreeze at Epoch</label>
+        <input id="unfreeze_at_epoch" name="unfreeze_at_epoch" type="number" value="{{ defaults.unfreeze_at_epoch }}">
+      </div>
+      <div class="field">
+        <label for="accumulate_grad_batches">Grad Accumulation</label>
+        <input id="accumulate_grad_batches" name="accumulate_grad_batches" type="number" value="{{ defaults.accumulate_grad_batches }}">
+      </div>
+      <div class="field">
+        <label for="early_stopping_patience">Early Stop Patience</label>
+        <input id="early_stopping_patience" name="early_stopping_patience" type="number" value="{{ defaults.early_stopping_patience }}">
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 1.5rem; text-align: right;">
+    <button type="submit" class="btn btn-primary">🚀 Launch Training</button>
+  </div>
+</form>
+{% endblock %}

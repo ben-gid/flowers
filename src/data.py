@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, Dataset, random_split
 from torch.utils.data.dataset import Subset
 from torchvision import datasets, transforms
 
-from flowers.training_utils import get_transforms
+from .utils import get_transforms
 
 
 class FlowerDataset(Dataset):
