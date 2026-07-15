@@ -232,7 +232,9 @@ class TrainConfig:
         self.optimizer_cls = OPTIMIZER_REGISTRY[self.optimizer]
         self.scheduler_cls = SCHEDULER_REGISTRY[self.scheduler]
         
-        factory, self.head_name, self.backbone_name = PRETRAINED_MODEL_REGISTRY[self.pretrained_model]
+        factory, self.head_name, self.backbone_name = \
+            PRETRAINED_MODEL_REGISTRY[self.pretrained_model]
+            
         self.pretrained_model_instance = factory()
 
         if not self.optimizer_kwargs:
