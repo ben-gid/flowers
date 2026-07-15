@@ -10,22 +10,8 @@ from pydantic import BaseModel
 from torch._tensor import Tensor
 from torch.nn import functional as F
 
-# Add 'src' directory to sys.path
-# Path(__file__).parent is src/flowers/
-sys.path.append(str(Path(__file__).parent.parent))
-
-
-try:
-    from .training_utils import get_transforms
-    from .utils import init_logger, load_class_names, load_ft_model, load_scratch_model
-except (ImportError, ValueError):
-    from flowers.training_utils import get_transforms
-    from flowers.utils import (
-        init_logger,
-        load_class_names,
-        load_ft_model,
-        load_scratch_model,
-    )
+from .training_utils import get_transforms
+from .utils import init_logger, load_class_names, load_ft_model, load_scratch_model
 
 logger = init_logger(__name__)
 

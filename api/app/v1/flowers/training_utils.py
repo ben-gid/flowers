@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, Dataset, random_split
 from torch.utils.data.dataset import Subset
 from torchvision import models, transforms
 
-from flowers.models import FlowerDataset
+from .models import FlowerDataset
 
 
 def get_device() -> torch.device:

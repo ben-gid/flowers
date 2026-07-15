@@ -12,7 +12,7 @@ from .models import SimpleCNN
 from .train_scratch import init_model
 from .training_utils import change_classifier
 
-project_root = Path(__file__).parent.parent.parent
+project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
 data_root = Path(os.getenv("DATA_ROOT", project_root / "data"))
 model_weights_root = project_root / "model_weights"
 

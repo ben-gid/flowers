@@ -7,32 +7,17 @@ from torch import Tensor, nn, optim
 from torch.utils.data import DataLoader
 from torchvision import models
 
-sys.path.append(str(Path(__file__).parent.parent))
-
-try:
-    from .models import FlowerDataset, SubsetWithTransform
-    from .training_utils import (
-        change_classifier,
-        get_class_weights,
-        get_device,
-        get_transforms,
-        partial_freeze,
-        split_dataset,
-        train,
-        val_epoch,
-    )
-except (ImportError, ValueError):
-    from models import FlowerDataset, SubsetWithTransform
-    from training_utils import (
-        change_classifier,
-        get_class_weights,
-        get_device,
-        get_transforms,
-        partial_freeze,
-        split_dataset,
-        train,
-        val_epoch,
-    )
+from .models import FlowerDataset, SubsetWithTransform
+from .training_utils import (
+    change_classifier,
+    get_class_weights,
+    get_device,
+    get_transforms,
+    partial_freeze,
+    split_dataset,
+    train,
+    val_epoch,
+)
 
 
 def main():
