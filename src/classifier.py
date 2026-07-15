@@ -19,9 +19,13 @@ class FlowerClassifier(L.LightningModule):
         num_classes: int,
         class_weights: torch.Tensor | None,
         lr_head: float = 1e-3,
+        weight_decay: float = 1e-2,
         optimizer: type[optim.Optimizer] = optim.AdamW,
         scheduler: type[LRScheduler] = CosineAnnealingLR,
         class_names: list[str] | None = None,
+        head_name: str = "classifier",
+        optimizer_kwargs: dict[str, Any] | None = None,
+        scheduler_kwargs: dict[str, Any] | None = None,
     ) -> None:
         """Initializes the FlowerClassifier module.
 
@@ -33,27 +37,47 @@ class FlowerClassifier(L.LightningModule):
                 cross-entropy loss.
             lr_head (float, optional): Learning rate for the classification head.
                 Defaults to 1e-3.
+            weight_decay (float, optional): Weight decay for the optimizer.
+                Defaults to 1e-2.
             optimizer (type[optim.Optimizer], optional): Optimizer class to use.
                 Defaults to optim.AdamW.
             scheduler (type[LRScheduler], optional): Learning rate scheduler class.
                 Defaults to CosineAnnealingLR.
             class_names (list[str] | None, optional): List of class names.
                 Defaults to None.
+            head_name (str): Name of the classification head attribute.
+                Defaults to "classifier".
+            backbone_name (str | None): Name of the backbone attribute.
+                Defaults to "features".
+            optimizer_kwargs (dict | None): Kwargs for the optimizer.
+            scheduler_kwargs (dict | None): Kwargs for the scheduler.
         """
         super().__init__()
         self.save_hyperparameters(
-            "lr_head", "num_classes", ignore=["backbone", "class_weights"]
+            "lr_head",
+            "num_classes",
+            "weight_decay",
+            "head_name",
+            ignore=["backbone", "class_weights", "pretrained_model"],
         )
+        self.optimizer_kwargs = optimizer_kwargs or {"weight_decay": weight_decay}
+        self.scheduler_kwargs = scheduler_kwargs or {}
         self.register_buffer(
             "class_weights",
             class_weights if class_weights is not None else torch.ones(num_classes),
         )
         self.model = pretrained_model
-        # replace classifier
-        self.model.classifier[1] = nn.Linear(  # type: ignore
-            pretrained_model.classifier[1].in_features,  # type: ignore
-            num_classes,
-        )
+        # dynamically replace head
+        head = getattr(self.model, head_name)
+        if isinstance(head, nn.Sequential):
+            in_features = head[-1].in_features
+            head[-1] = nn.Linear(in_features, num_classes)  # type: ignore
+        elif isinstance(head, nn.Linear):
+            in_features = head.in_features
+            setattr(self.model, head_name, nn.Linear(in_features, num_classes))
+        else:
+            raise ValueError(f"Unsupported head type: {type(head)}")
+
         self.optimizer = optimizer
         self.lr_scheduler = scheduler
 
@@ -169,20 +193,14 @@ class FlowerClassifier(L.LightningModule):
             scheduler.
         """
         # first only classifier params
+        head = getattr(self.model, self.hparams.head_name)  # type: ignore
         optimizer = self.optimizer(
-            self.model.classifier.parameters(),  # type: ignore
-            lr=self.hparams.lr_head,  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue]
+            head.parameters(),
+            lr=self.hparams.lr_head,  # pyright: ignore
+            **self.optimizer_kwargs,
         )
 
-        assert isinstance(self.trainer.max_epochs, int)
-        scheduler_kwargs: dict[str, Any] = {"T_max": self.trainer.max_epochs}
-        init_params = self.lr_scheduler.__init__.__code__.co_varnames
-        if "eta_min" in init_params:
-            scheduler_kwargs["eta_min"] = 1e-6
-        elif "min_lr" in init_params:
-            scheduler_kwargs["min_lr"] = 1e-6
-
-        lr_scheduler = self.lr_scheduler(optimizer, **scheduler_kwargs)
+        lr_scheduler = self.lr_scheduler(optimizer, **self.scheduler_kwargs)
 
         return {
             "optimizer": optimizer,

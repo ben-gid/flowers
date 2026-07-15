@@ -60,3 +60,6 @@ artifacts
 models_checkpoints
 model_weights
 mlflow.db
+
+# ai
+.agents
