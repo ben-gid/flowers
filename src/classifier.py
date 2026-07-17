@@ -191,4 +191,3 @@ class FlowerClassifier(L.LightningModule):
             "interval": "epoch",
             "monitor": "val_loss",
         }
-

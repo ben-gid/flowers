@@ -16,7 +16,7 @@ class AppState:
     classifier: nn.Module | None = None
     class_names: list[str] | None = None
     transform: transforms.Compose | None = None
-    
+
     def load(self, logger: Logger) -> None:
         """load classifier, transform and class names into app state memory
 
@@ -26,17 +26,17 @@ class AppState:
         logger.info("Loading model...")
         self.classifier = load_model(logger)
         logger.info("Model loaded")
-        
+
         self.class_names = load_class_names(logger)
         _, val_transform = get_transforms()
         self.transform = val_transform
-        
+
     def clear(self, logger) -> None:
-        """clear state memory
-        """
+        """clear state memory"""
         self.classifier = None
         self.class_names = None
         self.transform = None
         logger.info("Model, Transform, and Class Names cleared from memory.")
-        
+
+
 state = AppState()

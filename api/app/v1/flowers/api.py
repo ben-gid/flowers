@@ -1,7 +1,5 @@
 import io
-import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import torch
 from fastapi import FastAPI, File, HTTPException, UploadFile

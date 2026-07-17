@@ -238,6 +238,7 @@ def cmd_train(ns: argparse.Namespace) -> None:
 
     # late import for heavy function
     from run_training import run_training  # noqa: PLC0415
+
     run_training(cfg)
 
 

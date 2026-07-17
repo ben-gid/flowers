@@ -42,8 +42,8 @@ from typing import Literal
 # Path bootstrap – identical to train.py so this file is runnable on its own
 # ---------------------------------------------------------------------------
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_REPO_ROOT / "train")) # train.py lives here
-sys.path.insert(0, str(_REPO_ROOT))           # src.* imports
+sys.path.insert(0, str(_REPO_ROOT / "train"))  # train.py lives here
+sys.path.insert(0, str(_REPO_ROOT))  # src.* imports
 
 from config import TrainConfig  # noqa: E402
 from run_training import run_training  # noqa: E402
@@ -102,7 +102,7 @@ class SweepConfig:
             batch_size=self.batch_size,
             accumulate_grad_batches=self.accumulate_grad_batches,
             early_stopping_patience=self.early_stopping_patience,
-            precision=self.precision, # type: ignore
+            precision=self.precision,  # type: ignore
         )
 
 
@@ -599,16 +599,12 @@ def run_sweep(
         try:
             run_training(cfg)
             elapsed = time.perf_counter() - t0
-            results.append(
-                {"label": sc.label, "status": "ok", "elapsed_s": elapsed}
-            )
+            results.append({"label": sc.label, "status": "ok", "elapsed_s": elapsed})
             print(f"\n  Finished in {elapsed / 60:.1f} min")
         except Exception as exc:  # noqa: BLE001
             elapsed = time.perf_counter() - t0
             print(f"\n  FAILED after {elapsed / 60:.1f} min: {exc}")
-            results.append(
-                {"label": sc.label, "status": "error", "error": str(exc)}
-            )
+            results.append({"label": sc.label, "status": "error", "error": str(exc)})
 
     # ── Summary ──────────────────────────────────────────────────────────────
     print(_separator("Sweep complete"))

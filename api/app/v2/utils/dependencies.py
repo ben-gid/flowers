@@ -1,9 +1,8 @@
 import io
+import logging
 
 from fastapi import File, HTTPException, UploadFile
 from PIL import Image
-
-import logging
 
 from ..models import ValidatedImage
 
@@ -14,13 +13,13 @@ MIN_IMG_SIZE = 224
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5mb limit
 IMG_EXT = ["image/jpeg", "image/png", "image/jpg"]
 
+
 async def validate_and_convert_file(
     file: UploadFile = File(
         description="Upload an image of a flower",
         content_type=IMG_EXT,
     ),
 ) -> ValidatedImage:
-    
     # validate file extension
     if file.content_type not in IMG_EXT:
         logger.warning(f"Invalid file type. Allowed: {IMG_EXT}")
@@ -42,20 +41,17 @@ async def validate_and_convert_file(
     except Exception as e:
         logger.warning(f"Invalid image file: {str(e)}")
         raise HTTPException(
-            status_code=400, 
-            detail=f"Invalid file type. Allowed: {IMG_EXT}"
+            status_code=400, detail=f"Invalid file type. Allowed: {IMG_EXT}"
         ) from e
-        
+
     # validate image size
     if img.size[0] < MIN_IMG_SIZE or img.size[1] < MIN_IMG_SIZE:
-        logger.warning(
-            f"Image too small. Minimum size: {MIN_IMG_SIZE}x{MIN_IMG_SIZE}"
-        )
+        logger.warning(f"Image too small. Minimum size: {MIN_IMG_SIZE}x{MIN_IMG_SIZE}")
         raise HTTPException(
             status_code=400,
             detail=f"Image too small. Minimum size: {MIN_IMG_SIZE}x{MIN_IMG_SIZE}",
         )
-        
+
     return ValidatedImage(
         image=img,
         filename=file.filename or "unknown",

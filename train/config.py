@@ -55,66 +55,51 @@ SCHEDULER_REGISTRY: dict[str, type[LRScheduler]] = {
 
 # Pretrained model names -> (factory_callable, head_name, backbone_name)
 PRETRAINED_MODEL_REGISTRY: dict[
-    str, 
-    tuple[Callable[[], nn.Module], 
-    str, 
-    str | None]
+    str, tuple[Callable[[], nn.Module], str, str | None]
 ] = {
     "efficientnet_b0": (
         lambda: tv_models.efficientnet_b0(weights="IMAGENET1K_V1"),
-        "classifier", 
-        "features"
+        "classifier",
+        "features",
     ),
     "efficientnet_b1": (
         lambda: tv_models.efficientnet_b1(weights="IMAGENET1K_V1"),
         "classifier",
-        "features"
+        "features",
     ),
     "efficientnet_b2": (
         lambda: tv_models.efficientnet_b2(weights="IMAGENET1K_V1"),
         "classifier",
-        "features"
+        "features",
     ),
     "efficientnet_b3": (
         lambda: tv_models.efficientnet_b3(weights="IMAGENET1K_V1"),
         "classifier",
-        "features"
+        "features",
     ),
     "efficientnet_v2_s": (
         lambda: tv_models.efficientnet_v2_s(weights="IMAGENET1K_V1"),
         "classifier",
         "features",
     ),
-    "resnet50": (
-        lambda: tv_models.resnet50(weights="IMAGENET1K_V2"),
-        "fc",
-        None
-    ),
-    "resnet101": (
-        lambda: tv_models.resnet101(weights="IMAGENET1K_V2"),
-        "fc",
-        None
-    ),
+    "resnet50": (lambda: tv_models.resnet50(weights="IMAGENET1K_V2"), "fc", None),
+    "resnet101": (lambda: tv_models.resnet101(weights="IMAGENET1K_V2"), "fc", None),
     "mobilenet_v3_large": (
         lambda: tv_models.mobilenet_v3_large(weights="IMAGENET1K_V1"),
         "classifier",
-        "features"
+        "features",
     ),
     "vgg16": (
         lambda: tv_models.vgg16(weights="IMAGENET1K_V1"),
         "classifier",
-        "features"
+        "features",
     ),
     "convnext_tiny": (
         lambda: tv_models.convnext_tiny(weights="IMAGENET1K_V1"),
         "classifier",
-        "features"
+        "features",
     ),
-    "vit_b_16": (
-        lambda: tv_models.vit_b_16(weights="IMAGENET1K_V1"),
-        "heads",
-        None
-    ),
+    "vit_b_16": (lambda: tv_models.vit_b_16(weights="IMAGENET1K_V1"), "heads", None),
 }
 
 
@@ -231,10 +216,11 @@ class TrainConfig:
 
         self.optimizer_cls = OPTIMIZER_REGISTRY[self.optimizer]
         self.scheduler_cls = SCHEDULER_REGISTRY[self.scheduler]
-        
-        factory, self.head_name, self.backbone_name = \
-            PRETRAINED_MODEL_REGISTRY[self.pretrained_model]
-            
+
+        factory, self.head_name, self.backbone_name = PRETRAINED_MODEL_REGISTRY[
+            self.pretrained_model
+        ]
+
         self.pretrained_model_instance = factory()
 
         if not self.optimizer_kwargs:
@@ -246,10 +232,16 @@ class TrainConfig:
                     self.scheduler_kwargs = {"T_max": self.max_epochs, "eta_min": 1e-6}
                 case "plateau":
                     self.scheduler_kwargs = {
-                        "mode": "max", "patience": 2, "factor": 0.5, "min_lr": 1e-6}
+                        "mode": "max",
+                        "patience": 2,
+                        "factor": 0.5,
+                        "min_lr": 1e-6,
+                    }
                 case "step":
                     self.scheduler_kwargs = {
-                        "step_size": max(1, self.max_epochs // 3), "gamma": 0.1}
+                        "step_size": max(1, self.max_epochs // 3),
+                        "gamma": 0.1,
+                    }
 
         return self
 

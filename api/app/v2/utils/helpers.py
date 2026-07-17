@@ -28,6 +28,7 @@ MODEL_REGISTRY: dict[str, tuple[Callable[[], nn.Module], str, str, str]] = {
 }
 DEFAULT_MODEL_NAME = "efficientnet_v2_s"
 
+
 def load_class_names(logger: Logger | None = None) -> list[str]:
     """loads class names from data/"Oxford-102_Flower_dataset_labels.txt"
     if its available else create a list of "Class i"
@@ -47,7 +48,7 @@ def load_class_names(logger: Logger | None = None) -> list[str]:
             if logger is not None:
                 logger.error(
                     f"Class names file NOT FOUND at {classes_path}."
-                        "Please ensure it is present."
+                    "Please ensure it is present."
                 )
             class_names = [f"Class {i}" for i in range(102)]
         else:
@@ -60,7 +61,7 @@ def load_class_names(logger: Logger | None = None) -> list[str]:
             logger.error(f"Failed to load class names: {e}")
         class_names = [f"Class {i}" for i in range(102)]
     return class_names
-    
+
 
 def load_model(
     logger: Logger | None = None,

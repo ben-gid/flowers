@@ -1,5 +1,5 @@
-import time
 import logging
+import time
 
 from fastapi import Request
 from fastapi.responses import Response
@@ -18,8 +18,10 @@ async def log_responses(request: Request, call_next):
 
     logger.info(
         "%s %s → %d (%.1fms) body=%s",
-        request.method, request.url.path,
-        response.status_code, duration_ms,
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
         body.decode("utf-8", errors="replace"),
     )
 
