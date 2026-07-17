@@ -1,18 +1,3 @@
----
-license: apache-2.0
-library_name: pytorch
-tags:
-- image-classification
-- flowers
-- computer-vision
-- transfer-learning
-- pytorch-lightning
-- vit
-- efficientnet
-metrics:
-- accuracy
-- f1
----
 ![CI Status](https://github.com/ben-gid/flowers/actions/workflows/ci.yml/badge.svg)
 
 # Flower Classification API 🌸
