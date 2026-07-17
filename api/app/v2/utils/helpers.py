@@ -1,14 +1,32 @@
 import os
+from collections.abc import Callable
 from logging import Logger
 from pathlib import Path
 
-import torch
 from huggingface_hub import hf_hub_download
+from safetensors.torch import load_file
 from torch import nn
 from torchvision import models as tv_models
 
 project_root = Path(__file__).parent.parent.parent.parent.parent
 data_root = Path(os.getenv("DATA_ROOT", project_root / "data"))
+
+# name -> (architecture builder, head attribute name, HF repo id, weights filename)
+MODEL_REGISTRY: dict[str, tuple[Callable[[], nn.Module], str, str, str]] = {
+    "efficientnet_v2_s": (
+        lambda: tv_models.efficientnet_v2_s(weights=None),
+        "classifier",
+        "bengid/efficientnetv2-s-flower-classifier",
+        "efficientnetv2-s-flower-classifier.safetensors",
+    ),
+    "vit_b_16": (
+        lambda: tv_models.vit_b_16(weights=None),
+        "heads",
+        "bengid/vit-flower-classifier",
+        "vit-flower-classifier.safetensors",
+    ),
+}
+DEFAULT_MODEL_NAME = "efficientnet_v2_s"
 
 def load_class_names(logger: Logger | None = None) -> list[str]:
     """loads class names from data/"Oxford-102_Flower_dataset_labels.txt"
@@ -46,42 +64,41 @@ def load_class_names(logger: Logger | None = None) -> list[str]:
 
 def load_model(
     logger: Logger | None = None,
-) -> tv_models.EfficientNet:
-    """loads finetuned flower classifier weights from huggingface to lean 
-        FlowerClassifier
+) -> nn.Module:
+    """loads finetuned flower classifier weights from huggingface.
+
+    Model architecture is selected via the MODEL_NAME env var (one of
+    MODEL_REGISTRY, defaults to DEFAULT_MODEL_NAME).
 
     Args:
         logger (Logger | None, optional): api logger. Defaults to None.
 
     Returns:
-        FlowerClassifier: fine tuned classifier
+        nn.Module: fine tuned classifier
     """
-    ft_model_path = Path(
-        os.getenv("FT_MODEL_PATH", project_root / "ft_EfficientNet-B0.pth")
-    )
-
-    # check if model weights exist on disk
-    if not ft_model_path.exists():
-        ft_model_path = hf_hub_download(
-            repo_id="bengid/flower-classifier",
-            filename="ft_EfficientNet-B0.pth",
+    model_name = os.getenv("MODEL_NAME", DEFAULT_MODEL_NAME)
+    if model_name not in MODEL_REGISTRY:
+        raise ValueError(
+            f"Unknown MODEL_NAME '{model_name}'. Choose from: {list(MODEL_REGISTRY)}"
         )
+    build_model, head_name, repo_id, hf_filename = MODEL_REGISTRY[model_name]
 
     if logger:
-        logger.info(f"Loading EfficientNet model from {ft_model_path}...")
+        logger.info(f"Downloading {model_name} weights from {repo_id}...")
 
-    # init model
-    model = tv_models.efficientnet_b0(weights=None)
-    
-    model.classifier[1] = nn.Linear(
-        model.classifier[1].in_features, # type: ignore
-        102
-    )
+    # fetch weights from HF Hub (cached locally by hf_hub_download after first call)
+    ft_model_path = hf_hub_download(repo_id=repo_id, filename=hf_filename)
+
+    # init model and swap head to the 102-class layer the weights expect
+    model = build_model()
+    head = getattr(model, head_name)
+    if isinstance(head, nn.Sequential):
+        head[-1] = nn.Linear(head[-1].in_features, 102)  # type: ignore
+    else:
+        setattr(model, head_name, nn.Linear(head.in_features, 102))  # type: ignore
 
     # load weights to model
-    model.load_state_dict(
-        torch.load(ft_model_path, map_location="cpu", weights_only=True)
-    )
+    model.load_state_dict(load_file(ft_model_path, device="cpu"))
     # set model to eval mode
     model.eval()
 

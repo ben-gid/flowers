@@ -2,8 +2,8 @@ import sys
 from logging import Logger
 from pathlib import Path
 
+from torch import nn
 from torchvision import transforms
-from torchvision.models import EfficientNet
 
 from ..utils.helpers import load_class_names, load_model
 
@@ -13,7 +13,7 @@ from src.utils import get_transforms
 
 
 class AppState:
-    classifier: EfficientNet | None = None
+    classifier: nn.Module | None = None
     class_names: list[str] | None = None
     transform: transforms.Compose | None = None
     
