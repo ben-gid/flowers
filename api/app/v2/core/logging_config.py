@@ -3,7 +3,7 @@ import logging
 
 def build_log_config(level: str = "INFO") -> dict:
     """Uvicorn reads this dict and applies it via logging.config.dictConfig
-    at startup, replacing its own default logger setup. v1 logger didn't 
+    at startup, replacing its own default logger setup. v1 logger didn't
     override uvicorn's default logger"""
     return {
         "version": 1,
@@ -32,10 +32,16 @@ def build_log_config(level: str = "INFO") -> dict:
             "api": {"handlers": ["default"], "level": level, "propagate": False},
             "api_v2": {"handlers": ["default"], "level": level, "propagate": False},
             "uvicorn": {"handlers": ["default"], "level": level, "propagate": False},
-            "uvicorn.error": 
-                {"handlers": ["default"], "level": level, "propagate": False},
-            "uvicorn.access": 
-                {"handlers": ["access"], "level": level, "propagate": False},
+            "uvicorn.error": {
+                "handlers": ["default"],
+                "level": level,
+                "propagate": False,
+            },
+            "uvicorn.access": {
+                "handlers": ["access"],
+                "level": level,
+                "propagate": False,
+            },
         },
     }
 

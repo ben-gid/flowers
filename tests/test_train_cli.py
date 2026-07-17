@@ -1,14 +1,12 @@
 """Tests for train/cli/custom.py — argument parser and command handlers."""
 
 import pytest
-
 from cli.custom import (
     build_parser,
     cmd_choices,
     main,
 )
 from config import TrainConfig
-
 
 # ---------------------------------------------------------------------------
 # build_parser
@@ -28,15 +26,22 @@ def test_parser_train_defaults():
 
 def test_parser_train_overrides():
     parser = build_parser()
-    ns = parser.parse_args([
-        "train",
-        "--max-epochs", "5",
-        "--batch-size", "16",
-        "--optimizer", "adam",
-        "--scheduler", "step",
-        "--pretrained-model", "resnet50",
-        "--dry-run",
-    ])
+    ns = parser.parse_args(
+        [
+            "train",
+            "--max-epochs",
+            "5",
+            "--batch-size",
+            "16",
+            "--optimizer",
+            "adam",
+            "--scheduler",
+            "step",
+            "--pretrained-model",
+            "resnet50",
+            "--dry-run",
+        ]
+    )
     assert ns.max_epochs == 5
     assert ns.batch_size == 16
     assert ns.optimizer == "adam"

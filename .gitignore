@@ -47,6 +47,7 @@ full_pipeline/data/
 *.onnx
 *.pkl
 *.h5
+*.safetensors
 
 # OS
 .DS_Store

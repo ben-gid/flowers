@@ -9,33 +9,27 @@ from ..utils.dependencies import validate_and_convert_file
 
 router = APIRouter()
 
+
 @router.post("/classify", response_model=PredictionResponse)
-async def classify(
-    valid_img: ValidatedImage = Depends(validate_and_convert_file)
-):
+async def classify(valid_img: ValidatedImage = Depends(validate_and_convert_file)):
     if state.transform is None:
-        raise HTTPException(
-            status_code=500,
-            detail="app state transform wasn't loaded"
-        )
-        
+        raise HTTPException(status_code=500, detail="app state transform wasn't loaded")
+
     if state.classifier is None:
         raise HTTPException(
-            status_code=500,
-            detail="app state classifier wasn't loaded"
+            status_code=500, detail="app state classifier wasn't loaded"
         )
-        
+
     if state.class_names is None:
         raise HTTPException(
-            status_code=500,
-            detail="app state class_names weren't loaded"
+            status_code=500, detail="app state class_names weren't loaded"
         )
-    
+
     # get device
     device = next(state.classifier.parameters()).device
 
     # transform image to tensor and add batch dimension and move to device
-    transform_img = state.transform(valid_img.image).unsqueeze(0).to(device) # type: ignore
+    transform_img = state.transform(valid_img.image).unsqueeze(0).to(device)  # type: ignore
 
     # make prediction
     with torch.no_grad():
@@ -47,7 +41,7 @@ async def classify(
 
     # get confidence
     confidence = F.softmax(prediction, dim=1)[0][classification].item()
-    
+
     return PredictionResponse(
         filename=valid_img.filename,
         content_type=valid_img.content_type,

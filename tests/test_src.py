@@ -1,10 +1,13 @@
-"""Tests for src/ utilities (src/utils.py)."""
+"""Tests for src/ utilities (src/utils.py) and src/data.py split logic."""
+
+from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import torch
 
+from src.data import FlowerDataModule
 from utils import get_class_weights, get_transforms
-
 
 # ---------------------------------------------------------------------------
 # get_transforms
@@ -67,11 +70,6 @@ def test_class_weights_minority_gets_more():
 
 
 def test_splits_are_disjoint():
-    from pathlib import Path
-    from unittest.mock import patch
-
-    from src.data import FlowerDataModule
-
     class FakeDS:
         def __len__(self):
             return 1000

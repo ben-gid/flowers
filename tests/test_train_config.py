@@ -3,14 +3,11 @@
 import argparse
 
 import pytest
-
 from config import (
     OPTIMIZER_REGISTRY,
-    PRETRAINED_MODEL_REGISTRY,
     SCHEDULER_REGISTRY,
     TrainConfig,
 )
-
 
 # ---------------------------------------------------------------------------
 # resolve()

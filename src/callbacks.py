@@ -75,7 +75,6 @@ class BackboneFinetuning(BaseFinetuning):
             if self.new_lr_head is not None:
                 optimizer.param_groups[0]["lr"] = self.new_lr_head
 
-            
             scheduler = pl_module.lr_schedulers()
             if not isinstance(scheduler, ReduceLROnPlateau):
                 # Patch the scheduler so it tracks the backbone

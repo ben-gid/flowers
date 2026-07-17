@@ -66,7 +66,7 @@ def run_training(cfg: TrainConfig) -> None:
         tracking_uri=cfg.mlflow_db_uri,
         log_model=True,
     )
-    
+
     run_id = mlflow_logger.run_id or "unknown"
 
     # ── Data ─────────────────────────────────────────────────────────────────
@@ -126,11 +126,7 @@ def run_training(cfg: TrainConfig) -> None:
             "effective_batch_size": (
                 flower_dm.batch_size * trainer.accumulate_grad_batches
             ),
-            **{
-                f.name: getattr(cfg, f.name)
-                for f in ds_fields(cfg)
-                if f.repr
-            },  
+            **{f.name: getattr(cfg, f.name) for f in ds_fields(cfg) if f.repr},
         }
     )
 

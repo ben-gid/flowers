@@ -27,6 +27,7 @@ gui_dir = BASE_DIR / "train" / "gui"
 app.mount("/static", StaticFiles(directory=gui_dir / "static"), name="static")
 templates = Jinja2Templates(directory=gui_dir / "templates")
 
+
 # Basic flash message mockup via query parameters
 def get_flashed_messages(request: Request, with_categories=False):
     msg = request.query_params.get("msg")
@@ -37,19 +38,23 @@ def get_flashed_messages(request: Request, with_categories=False):
         return [(cat, msg)]
     return [msg]
 
+
 templates.env.globals["get_flashed_messages"] = get_flashed_messages
 
 DB_PATH = BASE_DIR / "mlflow.db"
+
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
+
 def format_timestamp(ts):
     if not ts:
         return "-"
-    return datetime.fromtimestamp(ts / 1000).strftime('%Y-%m-%d %H:%M:%S')
+    return datetime.fromtimestamp(ts / 1000).strftime("%Y-%m-%d %H:%M:%S")
+
 
 @app.get("/", response_class=HTMLResponse)
 def train_get(request: Request):
@@ -60,11 +65,16 @@ def train_get(request: Request):
         "schedulers": list(SCHEDULER_REGISTRY.keys()),
         "precisions": VALID_PRECISION,
     }
-    return templates.TemplateResponse(request=request, name="train.html", context={
-        "active": "train",
-        "defaults": defaults,
-        "choices": choices,
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="train.html",
+        context={
+            "active": "train",
+            "defaults": defaults,
+            "choices": choices,
+        },
+    )
+
 
 @app.post("/")
 def train_post(
@@ -84,67 +94,103 @@ def train_post(
     early_stopping_patience: int = Form(...),
 ):
     cmd = [
-        sys.executable, str(BASE_DIR / "train" / "cli"/ "custom.py"), "train",
-        "--exp-name", exp_name,
-        "--pretrained-model", pretrained_model,
-        "--optimizer", optimizer,
-        "--scheduler", scheduler,
-        "--precision", precision,
-        "--lr-head-stage-1", str(lr_head_stage_1),
-        "--lr-head-stage-2", str(lr_head_stage_2),
-        "--lr-backbone", str(lr_backbone),
-        "--max-epochs", str(max_epochs),
-        "--batch-size", str(batch_size),
-        "--unfreeze-at-epoch", str(unfreeze_at_epoch),
-        "--accumulate-grad-batches", str(accumulate_grad_batches),
-        "--early-stopping-patience", str(early_stopping_patience),
+        sys.executable,
+        str(BASE_DIR / "train" / "cli" / "custom.py"),
+        "train",
+        "--exp-name",
+        exp_name,
+        "--pretrained-model",
+        pretrained_model,
+        "--optimizer",
+        optimizer,
+        "--scheduler",
+        scheduler,
+        "--precision",
+        precision,
+        "--lr-head-stage-1",
+        str(lr_head_stage_1),
+        "--lr-head-stage-2",
+        str(lr_head_stage_2),
+        "--lr-backbone",
+        str(lr_backbone),
+        "--max-epochs",
+        str(max_epochs),
+        "--batch-size",
+        str(batch_size),
+        "--unfreeze-at-epoch",
+        str(unfreeze_at_epoch),
+        "--accumulate-grad-batches",
+        str(accumulate_grad_batches),
+        "--early-stopping-patience",
+        str(early_stopping_patience),
     ]
-    
+
     # Launch in background
     subprocess.Popen(cmd, cwd=str(BASE_DIR))
-    
-    return RedirectResponse(url="/runs?msg=Training+launched+successfully&cat=success", status_code=303)
+
+    return RedirectResponse(
+        url="/runs?msg=Training+launched+successfully&cat=success", status_code=303
+    )
+
 
 @app.get("/runs", response_class=HTMLResponse)
 def runs_list(request: Request):
     try:
         with get_db() as conn:
             runs = conn.execute(
-                "SELECT run_uuid, name, status, start_time, end_time FROM runs ORDER BY start_time DESC LIMIT 100"
+                "SELECT run_uuid, name, status, start_time, end_time FROM runs"
+                "ORDER BY start_time DESC LIMIT 100"
             ).fetchall()
-            
+
         formatted_runs = []
         for r in runs:
             d = dict(r)
-            d['start_time'] = format_timestamp(d['start_time'])
-            d['end_time'] = format_timestamp(d['end_time'])
+            d["start_time"] = format_timestamp(d["start_time"])
+            d["end_time"] = format_timestamp(d["end_time"])
             formatted_runs.append(d)
     except sqlite3.OperationalError:
         formatted_runs = []
-        
-    return templates.TemplateResponse(request=request, name="runs.html", context={
-        "active": "runs",
-        "runs": formatted_runs,
-    })
+
+    return templates.TemplateResponse(
+        request=request,
+        name="runs.html",
+        context={
+            "active": "runs",
+            "runs": formatted_runs,
+        },
+    )
+
 
 @app.get("/run/{run_id}", response_class=HTMLResponse)
 def run_detail(request: Request, run_id: str):
     with get_db() as conn:
-        run = conn.execute("SELECT run_uuid, name, status FROM runs WHERE run_uuid = ?", (run_id,)).fetchone()
-        
-        params_rows = conn.execute("SELECT key, value FROM params WHERE run_uuid = ?", (run_id,)).fetchall()
-        params = {r['key']: r['value'] for r in params_rows}
-        
-        metrics_rows = conn.execute("SELECT key, value FROM latest_metrics WHERE run_uuid = ?", (run_id,)).fetchall()
-        metrics = {r['key']: r['value'] for r in metrics_rows}
-        
-    return templates.TemplateResponse(request=request, name="run_detail.html", context={
-        "active": "runs",
-        "run": run,
-        "params": params,
-        "metrics": metrics,
-    })
+        run = conn.execute(
+            "SELECT run_uuid, name, status FROM runs WHERE run_uuid = ?", (run_id,)
+        ).fetchone()
+
+        params_rows = conn.execute(
+            "SELECT key, value FROM params WHERE run_uuid = ?", (run_id,)
+        ).fetchall()
+        params = {r["key"]: r["value"] for r in params_rows}
+
+        metrics_rows = conn.execute(
+            "SELECT key, value FROM latest_metrics WHERE run_uuid = ?", (run_id,)
+        ).fetchall()
+        metrics = {r["key"]: r["value"] for r in metrics_rows}
+
+    return templates.TemplateResponse(
+        request=request,
+        name="run_detail.html",
+        context={
+            "active": "runs",
+            "run": run,
+            "params": params,
+            "metrics": metrics,
+        },
+    )
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)

@@ -8,9 +8,8 @@ import torch
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from api.app.v2.main import app
 from api.app.v2.core.config import state
-
+from api.app.v2.main import app
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -41,7 +40,7 @@ def loaded_state():
     def _fake_load(logger=None):
         state.classifier = mock_model
         state.class_names = class_names
-        state.transform = lambda img: torch.zeros(3, 224, 224)
+        state.transform = lambda img: torch.zeros(3, 224, 224)  # type: ignore
 
     with patch("api.app.v2.core.config.AppState.load", side_effect=_fake_load):
         yield
@@ -107,12 +106,15 @@ def test_classify_invalid_file_type(loaded_state):
 
 def test_classify_no_model_loaded():
     """Classifier is None → 500."""
+
     def _load_without_classifier(logger=None):
         state.classifier = None
         state.class_names = ["rose"]
-        state.transform = lambda img: torch.zeros(3, 224, 224)
+        state.transform = lambda img: torch.zeros(3, 224, 224)  # type: ignore
 
-    with patch("api.app.v2.core.config.AppState.load", side_effect=_load_without_classifier):
+    with patch(
+        "api.app.v2.core.config.AppState.load", side_effect=_load_without_classifier
+    ):
         with TestClient(app) as client:
             r = client.post(
                 "/classify",
