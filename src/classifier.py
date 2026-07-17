@@ -1,13 +1,11 @@
-import os
 from typing import Any
 
 import lightning as L
 import torch
-from matplotlib import pyplot as plt
 from torch import nn, optim
 from torch.optim.lr_scheduler import CosineAnnealingLR, LRScheduler
 from torchmetrics import F1Score
-from torchmetrics.classification import Accuracy, MulticlassConfusionMatrix
+from torchmetrics.classification import Accuracy
 
 
 class FlowerClassifier(L.LightningModule):
@@ -90,11 +88,9 @@ class FlowerClassifier(L.LightningModule):
 
         self.val_acc = Accuracy("multiclass", num_classes=num_classes)
         self.val_f1 = F1Score("multiclass", num_classes=num_classes, average="macro")
-        self.val_conf_mat = MulticlassConfusionMatrix(num_classes=num_classes)
 
         self.test_acc = Accuracy("multiclass", num_classes=num_classes)
         self.test_f1 = F1Score("multiclass", num_classes=num_classes, average="macro")
-        self.test_conf_mat = MulticlassConfusionMatrix(num_classes=num_classes)
         self.test_per_class_f1 = F1Score(
             task="multiclass", num_classes=num_classes, average=None
         )
@@ -148,14 +144,7 @@ class FlowerClassifier(L.LightningModule):
         self.log("val_acc", self.val_acc(logits, y), prog_bar=True)
         self.log("val_f1", self.val_f1(logits, y), prog_bar=True)
 
-        preds = torch.argmax(logits, dim=1)
-        self.val_conf_mat.update(preds, y)
         return loss
-
-    def on_validation_epoch_end(self) -> None:
-        """Logs the confusion matrix at the end of the validation epoch."""
-        self._log_confmat(self.val_conf_mat, stage="val")
-        self.val_conf_mat.reset()
 
     def test_step(self, batch, batch_idx) -> torch.Tensor:
         """Executes a single test step.
@@ -176,14 +165,7 @@ class FlowerClassifier(L.LightningModule):
         self.log("test_f1", self.test_f1(logits, y), prog_bar=True)
         self.log("test_per_class_f1", self.test_per_class_f1(logits, y), prog_bar=True)
 
-        preds = torch.argmax(logits, dim=1)
-        self.test_conf_mat.update(preds, y)
         return loss
-
-    def on_test_epoch_end(self) -> None:
-        """Logs the confusion matrix at the end of the test epoch."""
-        self._log_confmat(self.test_conf_mat, stage="test")
-        self.test_conf_mat.reset()
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Configures the optimizer and learning rate scheduler.
@@ -209,32 +191,3 @@ class FlowerClassifier(L.LightningModule):
             "monitor": "val_loss",
         }
 
-    def _log_confmat(self, metric: MulticlassConfusionMatrix, stage: str) -> None:
-        """Logs a confusion matrix figure to the logger.
-
-        Args:
-            metric (MulticlassConfusionMatrix): The confusion matrix metric to plot.
-            stage (str): The current stage (e.g., 'val' or 'test').
-        """
-        fig, ax = metric.plot(labels=self.class_names)
-        ax.set_title(f"{stage} confusion matrix - epoch {self.current_epoch}")
-
-        # some Logger implementations (or static analysis) may not expose
-        # `experiment` or `run_id`. Guard access to avoid attribute errors.
-        experiment = getattr(self.logger, "experiment", None)
-        if experiment is None:
-            return
-
-        log_kwargs = {
-            "figure": fig,
-            "artifact_file": os.path.join(
-                "confusion_matrices", f"{stage}_epoch_{self.current_epoch}.png"
-            ),
-        }
-        run_id = getattr(self.logger, "run_id", None)
-        if run_id is not None:
-            log_kwargs["run_id"] = run_id
-
-        experiment.log_figure(**log_kwargs)
-        # remove fig from memory
-        plt.close(fig)
