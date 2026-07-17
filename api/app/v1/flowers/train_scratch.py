@@ -1,33 +1,18 @@
 import os
-import sys
 from pathlib import Path
 
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
 
-# Add 'src' directory to sys.path
-# Path(__file__).parent is src/flowers/
-sys.path.append(str(Path(__file__).parent.parent))
-
-try:
-    from .models import FlowerDataset, SimpleCNN, SubsetWithTransform
-    from .training_utils import (
-        get_device,
-        get_transforms,
-        split_dataset,
-        train,
-        val_epoch,
-    )
-except (ImportError, ValueError):
-    from models import FlowerDataset, SimpleCNN, SubsetWithTransform
-    from training_utils import (
-        get_device,
-        get_transforms,
-        split_dataset,
-        train,
-        val_epoch,
-    )
+from .models import FlowerDataset, SimpleCNN, SubsetWithTransform
+from .training_utils import (
+    get_device,
+    get_transforms,
+    split_dataset,
+    train,
+    val_epoch,
+)
 
 
 def main():

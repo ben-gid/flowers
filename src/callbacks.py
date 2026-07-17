@@ -1,5 +1,6 @@
 from lightning.pytorch.callbacks import BaseFinetuning
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from .classifier import FlowerClassifier
 
@@ -74,6 +75,8 @@ class BackboneFinetuning(BaseFinetuning):
             if self.new_lr_head is not None:
                 optimizer.param_groups[0]["lr"] = self.new_lr_head
 
-            # Patch the scheduler so it tracks the backbone
+            
             scheduler = pl_module.lr_schedulers()
-            scheduler.base_lrs.append(self.lr_backbone)  # type:ignore
+            if not isinstance(scheduler, ReduceLROnPlateau):
+                # Patch the scheduler so it tracks the backbone
+                scheduler.base_lrs.append(self.lr_backbone)  # type:ignore

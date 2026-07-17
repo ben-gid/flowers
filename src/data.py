@@ -242,12 +242,14 @@ class FlowerDataModule(L.LightningDataModule):
         full_ds = FlowerDataset(self.data_root)
         generator = torch.Generator().manual_seed(self.seed)
         train_subset, val_subset, test_subset = random_split(
-            full_ds, (0.7, 0.15, 0.15), generator=generator
+            full_ds,
+            (self.train_split, self.val_split, self.test_split),
+            generator=generator,
         )  # type: ignore
 
         self.train_set = SubsetWithTransform(train_subset, self.transform_train)
-        self.val_set = SubsetWithTransform(train_subset, self.transform_test)
-        self.test_set = SubsetWithTransform(train_subset, self.transform_test)
+        self.val_set = SubsetWithTransform(val_subset, self.transform_test)
+        self.test_set = SubsetWithTransform(test_subset, self.transform_test)
 
     def train_dataloader(self) -> DataLoader:
         """Creates the DataLoader for the training set.
