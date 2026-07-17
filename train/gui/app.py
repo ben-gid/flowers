@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR / "train"))
 
-from config import (
+from config import (  # noqa: E402
     OPTIMIZER_REGISTRY,
     PRETRAINED_MODEL_REGISTRY,
     SCHEDULER_REGISTRY,
@@ -84,7 +84,7 @@ def train_post(
     early_stopping_patience: int = Form(...),
 ):
     cmd = [
-        sys.executable, str(BASE_DIR / "train" / "cli.py"), "train",
+        sys.executable, str(BASE_DIR / "train" / "cli"/ "custom.py"), "train",
         "--exp-name", exp_name,
         "--pretrained-model", pretrained_model,
         "--optimizer", optimizer,
