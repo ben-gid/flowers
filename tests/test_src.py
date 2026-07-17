@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import numpy as np
 import torch
+from PIL import Image
 
 from src.data import FlowerDataModule
 from utils import get_class_weights, get_transforms
@@ -21,7 +22,6 @@ def test_get_transforms_returns_two_composes():
 
 
 def test_val_transform_shape():
-    from PIL import Image
 
     _, val_t = get_transforms()
     img = Image.new("RGB", (256, 256), color="green")
@@ -30,7 +30,6 @@ def test_val_transform_shape():
 
 
 def test_train_transform_shape():
-    from PIL import Image
 
     train_t, _ = get_transforms()
     img = Image.new("RGB", (256, 256), color="blue")
