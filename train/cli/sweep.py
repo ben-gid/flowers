@@ -26,6 +26,10 @@ Run only a specific tier (A / B / C)::
 Skip the first N configs (resume after a crash)::
 
     python train/sweep.py --skip 3
+
+Log to a different MLflow experiment::
+
+    python train/sweep.py --exp-name my-sweep
 """
 
 from __future__ import annotations
@@ -89,8 +93,9 @@ class SweepConfig:
     # hardware
     precision: str = "16-mixed"
 
-    def to_train_config(self) -> TrainConfig:
+    def to_train_config(self, exp_name: str | None = None) -> TrainConfig:
         return TrainConfig(
+            exp_name=exp_name or TrainConfig.exp_name,
             pretrained_model=self.pretrained_model,
             optimizer=self.optimizer,
             scheduler=self.scheduler,
@@ -564,6 +569,7 @@ def run_sweep(
     configs: list[SweepConfig],
     dry_run: bool = False,
     skip: int = 0,
+    exp_name: str | None = None,
 ) -> None:
     """Run (or print) every config in *configs* sequentially.
 
@@ -575,6 +581,8 @@ def run_sweep(
         If *True*, print each resolved config but skip actual training.
     skip:
         Skip the first *skip* configs (useful to resume after a crash).
+    exp_name:
+        Override the MLflow experiment name for every config in the sweep.
     """
     total = len(configs)
     if skip:
@@ -586,7 +594,7 @@ def run_sweep(
     for idx, sc in enumerate(configs, start=skip + 1):
         print(_separator(f"[{idx}/{total}] {sc.label}  (Tier {sc.tier})"))
 
-        cfg: TrainConfig = sc.to_train_config().resolve()
+        cfg: TrainConfig = sc.to_train_config(exp_name).resolve()
         print(cfg.summary())
         print()
 
@@ -660,6 +668,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip the first N configs globally (useful to resume after a crash).",
     )
     p.add_argument(
+        "--exp-name",
+        default=None,
+        metavar="NAME",
+        help=f"MLflow experiment name for every run (default: {TrainConfig.exp_name}).",
+    )
+    p.add_argument(
         "--list",
         action="store_true",
         dest="list_only",
@@ -691,7 +705,7 @@ def main(argv: list[str] | None = None) -> None:
         print("[sweep] DRY RUN -- no training will occur")
     print()
 
-    run_sweep(configs, dry_run=args.dry_run, skip=args.skip)
+    run_sweep(configs, dry_run=args.dry_run, skip=args.skip, exp_name=args.exp_name)
 
 
 if __name__ == "__main__":
