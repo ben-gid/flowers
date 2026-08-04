@@ -25,8 +25,14 @@ MODEL_REGISTRY: dict[str, tuple[Callable[[], nn.Module], str, str, str]] = {
         "bengid/vit-flower-classifier",
         "vit-flower-classifier.safetensors",
     ),
+    "convnext_tiny": (
+        lambda: tv_models.convnext_tiny(weights=None),
+        "classifier",
+        "bengid/convnext-tiny-flower-classifier",
+        "convnext-tiny-flower-classifier.safetensors",
+    ),
 }
-DEFAULT_MODEL_NAME = "efficientnet_v2_s"
+DEFAULT_MODEL_NAME = "convnext_tiny"
 
 
 def load_class_names(logger: Logger | None = None) -> list[str]:

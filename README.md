@@ -286,7 +286,7 @@ Interactive docs at [http://localhost:8000/docs](http://localhost:8000/docs).
 | Variable | Default | Description |
 |---|---|---|
 | `DATA_ROOT` | `./data` | Dataset root (needs `Oxford-102_Flower_dataset_labels.txt` for class names) |
-| `MODEL_NAME` | `efficientnet_v2_s` | Architecture to serve; one of `MODEL_REGISTRY` (`efficientnet_v2_s`, `vit_b_16`) |
+| `MODEL_NAME` | `convnext_tiny` | Architecture to serve; one of `MODEL_REGISTRY` (`convnext_tiny`, `efficientnet_v2_s`, `vit_b_16`) |
 
 ---
 
@@ -361,7 +361,8 @@ Lint and typecheck run in parallel; tests need both; the Docker build needs test
 
 Published models — the v2 API auto-downloads from these:
 
-- **[bengid/efficientnetv2-s-flower-classifier](https://huggingface.co/bengid/efficientnetv2-s-flower-classifier)** — serving default
+- **[bengid/convnext-tiny-flower-classifier](https://huggingface.co/bengid/convnext-tiny-flower-classifier)** — serving default
+- **[bengid/efficientnetv2-s-flower-classifier](https://huggingface.co/bengid/efficientnetv2-s-flower-classifier)** — smallest weights
 - **[bengid/vit-flower-classifier](https://huggingface.co/bengid/vit-flower-classifier)** — best accuracy
 
 Full model cards under `model-cards/`. Legacy v1 weights remain at [bengid/flower-classifier](https://huggingface.co/bengid/flower-classifier).

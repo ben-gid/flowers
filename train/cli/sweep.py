@@ -4,10 +4,11 @@ Runs :func:`~train.run_training` sequentially across a curated set of
 configurations that have a high probability of producing the best F1 /
 accuracy while also covering efficient low-cost options.
 
-Configs are grouped into three tiers:
+Configs are grouped into four tiers:
   • Tier A – max accuracy   (larger backbones, longer schedules)
   • Tier B – balanced       (medium backbones, reasonable schedules)
   • Tier C – efficient      (lightweight backbones, fast schedules)
+  • Tier D – post-leak      (published leak-era recipes, re-run on fixed splits)
 
 Usage
 -----
@@ -19,7 +20,7 @@ Dry-run (print configs without training)::
 
     python train/sweep.py --dry-run
 
-Run only a specific tier (A / B / C)::
+Run only a specific tier (A / B / C / D)::
 
     python train/sweep.py --tier B
 
@@ -56,7 +57,7 @@ from run_training import run_training  # noqa: E402
 # Sweep definitions
 # ---------------------------------------------------------------------------
 
-Tier = Literal["A", "B", "C"]
+Tier = Literal["A", "B", "C", "D"]
 
 
 @dataclass(frozen=True)
@@ -552,7 +553,135 @@ TIER_C: list[SweepConfig] = [
     ),
 ]
 
-ALL_CONFIGS: list[SweepConfig] = TIER_A + TIER_B + TIER_C
+# ── Tier D: Post-leak re-runs + variants ────────────────────────────────────
+#
+# D1/D2 reproduce the exact published recipes of the two leak-era models
+# (model-cards/*.md) so the corrected-split numbers are directly comparable to
+# the re-scored checkpoints. Both were selected on a leaked val signal, so this
+# is the first time either recipe gets an honest early-stop / checkpoint.
+#
+# Note both cards keep the head LR flat at 1e-3 after unfreeze (no stage-2
+# decay), unlike every config in tiers A-C. D3-D6 are new combinations probing
+# exactly that, plus the batch/scheduler choices the leak made unverifiable.
+
+TIER_D: list[SweepConfig] = [
+    # D1 – ViT-B/16, published recipe (test acc 0.9796 / F1 0.9637 re-scored)
+    SweepConfig(
+        label="D1 | ViT-B/16 | AdamW | Cosine | bs64 accum4 | e50 | card-repro",
+        tier="D",
+        pretrained_model="vit_b_16",
+        optimizer="adamw",
+        scheduler="cosine",
+        lr_head_stage_1=1e-3,
+        lr_head_stage_2=1e-3,
+        lr_backbone=1e-5,
+        unfreeze_at_epoch=5,
+        max_epochs=50,
+        batch_size=64,
+        accumulate_grad_batches=4,
+        early_stopping_patience=5,
+        precision="16-mixed",
+    ),
+    # D2 – EfficientNetV2-S, published recipe (test acc 0.9642 / F1 0.9364)
+    SweepConfig(
+        label="D2 | EffNetV2-S | AdamW | Cosine | bs32 | e30 | card-repro",
+        tier="D",
+        pretrained_model="efficientnet_v2_s",
+        optimizer="adamw",
+        scheduler="cosine",
+        lr_head_stage_1=1e-3,
+        lr_head_stage_2=1e-3,
+        lr_backbone=1e-5,
+        unfreeze_at_epoch=5,
+        max_epochs=30,
+        batch_size=32,
+        accumulate_grad_batches=1,
+        early_stopping_patience=5,
+        precision="16-mixed",
+    ),
+    # D3 – NEW: D1 with a decayed stage-2 head LR + 2x backbone LR, bf16.
+    # Tests whether the card's flat 1e-3 head LR was holding the backbone back
+    # once unfrozen. bf16 over fp16 because ViT attention logits are the classic
+    # fp16 overflow case and the loss-scaler stalls cost real epochs.
+    SweepConfig(
+        label="D3 | ViT-B/16 | AdamW | Cosine | head-decay | bf16 | e50",
+        tier="D",
+        pretrained_model="vit_b_16",
+        optimizer="adamw",
+        scheduler="cosine",
+        lr_head_stage_1=1e-3,
+        lr_head_stage_2=3e-4,
+        lr_backbone=2e-5,
+        unfreeze_at_epoch=5,
+        max_epochs=50,
+        batch_size=64,
+        accumulate_grad_batches=4,
+        early_stopping_patience=8,
+        precision="bf16-mixed",
+    ),
+    # D4 – NEW: EffNetV2-S at 4x the effective batch (32 -> 128) with a matching
+    # backbone LR bump and a longer schedule. The card's run was the only config
+    # anywhere in this sweep with an effective batch of 32; that was never a
+    # deliberate choice, just what shipped.
+    SweepConfig(
+        label="D4 | EffNetV2-S | AdamW | Cosine | bs64 accum2 | e40",
+        tier="D",
+        pretrained_model="efficientnet_v2_s",
+        optimizer="adamw",
+        scheduler="cosine",
+        lr_head_stage_1=1e-3,
+        lr_head_stage_2=5e-4,
+        lr_backbone=2e-5,
+        unfreeze_at_epoch=5,
+        max_epochs=40,
+        batch_size=64,
+        accumulate_grad_batches=2,
+        early_stopping_patience=8,
+        precision="16-mixed",
+    ),
+    # D5 – NEW: ViT-B/16 on plateau instead of cosine. Only worth running now:
+    # plateau reads val_acc directly, which under the leak was train accuracy,
+    # so it could never have fired correctly. Long patience since the LR drops
+    # themselves eat into the early-stopping counter.
+    SweepConfig(
+        label="D5 | ViT-B/16 | AdamW | Plateau | bs64 accum4 | e40",
+        tier="D",
+        pretrained_model="vit_b_16",
+        optimizer="adamw",
+        scheduler="plateau",
+        lr_head_stage_1=1e-3,
+        lr_head_stage_2=5e-4,
+        lr_backbone=1e-5,
+        unfreeze_at_epoch=5,
+        max_epochs=40,
+        batch_size=64,
+        accumulate_grad_batches=4,
+        early_stopping_patience=10,
+        precision="16-mixed",
+    ),
+    # D6 – NEW: ConvNeXt-Tiny under the ViT recipe (flat head LR, accum4, e50).
+    # A8/B2 run ConvNeXt with decayed head LR and no accumulation, so this is a
+    # genuine head-to-head: ~28M params vs ViT's 86M on the same schedule. If it
+    # lands within ~1pp of D1 it is the better serving default than either card.
+    SweepConfig(
+        label="D6 | ConvNeXt-Tiny | AdamW | Cosine | bs64 accum4 | e50",
+        tier="D",
+        pretrained_model="convnext_tiny",
+        optimizer="adamw",
+        scheduler="cosine",
+        lr_head_stage_1=1e-3,
+        lr_head_stage_2=1e-3,
+        lr_backbone=1e-5,
+        unfreeze_at_epoch=5,
+        max_epochs=50,
+        batch_size=64,
+        accumulate_grad_batches=4,
+        early_stopping_patience=8,
+        precision="16-mixed",
+    ),
+]
+
+ALL_CONFIGS: list[SweepConfig] = TIER_A + TIER_B + TIER_C + TIER_D
 
 
 # ---------------------------------------------------------------------------
@@ -641,10 +770,11 @@ def _build_parser() -> argparse.ArgumentParser:
             Hyperparameter sweep for the flower classifier.
 
             Runs train.run_training sequentially across curated configs grouped
-            into three tiers:
+            into four tiers:
               Tier A – max accuracy   (9 configs)
               Tier B – balanced       (9 configs)
               Tier C – efficient/fast (6 configs)
+              Tier D – post-leak      (6 configs)
             """
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -656,9 +786,9 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--tier",
-        choices=["A", "B", "C"],
+        choices=["A", "B", "C", "D"],
         metavar="TIER",
-        help="Run only configs in the specified tier (A / B / C).",
+        help="Run only configs in the specified tier (A / B / C / D).",
     )
     p.add_argument(
         "--skip",
