@@ -23,9 +23,9 @@ model-index:
       split: validation
     metrics:
     - type: accuracy
-      value: 0.9682
+      value: 0.9699
     - type: f1
-      value: 0.9468
+      value: 0.9498
   - task:
       type: image-classification
     dataset:
@@ -34,20 +34,18 @@ model-index:
       split: test
     metrics:
     - type: accuracy
-      value: 0.9642
+      value: 0.9691
     - type: f1
-      value: 0.9364
+      value: 0.9433
 ---
 
 # EfficientNetV2-S Flower Classifier
 
-Fine-tuned [`torchvision.models.efficientnet_v2_s`](https://docs.pytorch.org/vision/main/models/efficientnetv2.html) (ImageNet-1K pretrained) for 102-class flower classification on the Oxford-102 Flowers dataset, with the full backbone unfrozen during fine-tuning. Achieves **0.9642 accuracy / 0.9364 macro-F1** on a held-out test split.
+Fine-tuned [`torchvision.models.efficientnet_v2_s`](https://docs.pytorch.org/vision/main/models/efficientnetv2.html) (ImageNet-1K pretrained) for 102-class flower classification on the Oxford-102 Flowers dataset, with the full backbone unfrozen during fine-tuning. Achieves **0.9691 accuracy / 0.9433 macro-F1** on a held-out test split.
 
-> **Note:** earlier versions of this card reported 0.9997 accuracy / 0.9995 F1. Those numbers were produced by a data leak in the training pipeline's split logic and have been corrected — see [Metrics correction](#metrics-correction--earlier-scores-were-invalid) below. The weights are unaffected; only the measurement was.
+> **Note:** this card describes a **new checkpoint**, retrained after a data leak in the training pipeline's split logic was fixed. The weights previously published under this repo were leak-era and were selected on a corrupted validation signal — see [Training history](#training-history). If you pinned an earlier revision, re-download.
 
-**Recommended when** you need strong accuracy at a fraction of the size and latency — still the default choice for serving. At ~82MB and ~30ms mean latency it is ~4x smaller and ~3x faster than [ViT-B/16 Flower Classifier](vit-b16-readme.md), which costs it ~2.7pp of test macro-F1.
-
-That trade-off is a real one now. Under the earlier (leaked) metrics both models looked tied at ~1.0, making this model a free win; on corrected data ViT-B/16 is measurably more accurate. This card still recommends EfficientNetV2-S as the serving default — 4x the size and 3x the latency is a steep price for 2.7pp, and most deployments should pay the accuracy rather than the resources — but if you are running offline batch work with no latency budget, ViT-B/16 is now the better pick on merit, not a rounding error.
+**Recommended when raw weight size is the binding constraint.** At 81.8 MB and 20,308,150 parameters it is the smallest of the three models published here. It is *not* the fastest and it is not the most accurate: on GPU at batch size 1 it is the slowest of the three, and its macro-F1 (0.9433) trails both [ConvNeXt-Tiny](https://huggingface.co/bengid/convnext-tiny-flower-classifier) (0.9694) and [ViT-B/16](https://huggingface.co/bengid/vit-flower-classifier) (0.9722). If you are deploying to GPU, ConvNeXt-Tiny has both lower latency and higher accuracy for a modest increase in weight size — pick this model when download size or host memory is what you are optimizing.
 
 ## Usage
 
@@ -64,7 +62,8 @@ model.classifier[1] = torch.nn.Linear(model.classifier[1].in_features, 102)
 model.load_state_dict(load_file(weights_path, device="cpu"))
 model.eval()
 
-# preprocessing: resize(256) -> center-crop(224) -> normalize with dataset mean/std
+# preprocessing: Resize((256, 256)) -> CenterCrop(224) -> ToTensor -> Normalize(dataset mean/std)
+# note: the resize is to a fixed 256x256 square, NOT shortest-side-256 -- aspect ratio is not preserved
 # see src/utils.py:get_transforms() in the training repo for the exact pipeline
 # (https://github.com/ben-gid/flowers/blob/main/src/utils.py)
 ```
@@ -77,15 +76,17 @@ model.eval()
 
 Single-stage fine-tune with a **two-phase backbone unfreeze** callback (`BackboneFinetuning`): the EfficientNetV2 backbone starts frozen (only the classification head trains), then unfreezes at a fixed epoch with its own, lower learning rate and a separate parameter group — unlike this project's original (v1) EfficientNet-B0 model, which only ever unfroze its *last 3 backbone blocks*.
 
+Trained under the `corrected-split-retrain` MLflow experiment, i.e. after the split bug described in [Training history](#training-history) was fixed. Checkpoint selection and early stopping were therefore driven by a genuine held-out validation signal.
+
 ### Hyperparameters
 
 | Parameter | Value |
 |---|---|
 | Optimizer | AdamW |
 | LR scheduler | Cosine annealing (T_max=30, eta_min=1e-06) |
-| Head LR (before unfreeze) | 1e-3 |
-| Head LR (after unfreeze) | 1e-3 |
-| Backbone LR (after unfreeze) | 1e-5 |
+| Head LR (before unfreeze) | 0.001 |
+| Head LR (after unfreeze) | 0.001 |
+| Backbone LR (after unfreeze) | 1e-05 |
 | Unfreeze epoch | 5 |
 | Max epochs | 30 |
 | Batch size | 32 |
@@ -101,23 +102,23 @@ Oxford-102 split 70/15/15 by `random_split(seed=42)` → 5,733 train / 1,228 val
 
 | Metric | Validation | Test |
 |---|---|---|
-| **Accuracy** | **0.9682** | **0.9642** |
-| **Macro F1** | **0.9468** | **0.9364** |
-| Loss | 0.1246 | 0.1206 |
+| **Accuracy** | **0.9699** | **0.9691** |
+| **Macro F1** | **0.9498** | **0.9433** |
+| Loss | 0.1263 | 0.1110 |
 
 | Property | Value |
 |---|---|
 | Parameters | 20,308,150 |
 | Model size | 81.8 MB |
 | Checkpoint size | 245.0 MB |
-| Mean latency | 29.6 ms |
-| p95 latency | 30.9 ms |
+| Mean latency | 11.33 ms |
+| p95 latency | 12.84 ms |
 
-Latency measured on ryzen 5600x cpu at batch size 1.
+Latency measured on an NVIDIA RTX 5070 (`cuda:0`) at batch size 1, with `torch.cuda.synchronize()` after every forward pass. **This is the number most likely to surprise you.** EfficientNetV2-S has the fewest parameters of the three models here and is nonetheless the slowest on GPU at batch size 1 — its long chain of small depthwise blocks leaves the GPU launch-bound at batch size 1, where ConvNeXt-Tiny's fewer, larger operations do not. Do not infer latency from parameter count. **These figures do not transfer to CPU.** An earlier CPU benchmark of the same architectures put ViT-B/16 at roughly 3x the latency of the other two, while ConvNeXt-Tiny and EfficientNetV2-S landed within a few milliseconds of each other — close enough that two runs of that benchmark disagreed on which was faster. Benchmark on your own serving hardware before treating any of this as a ranking.
 
-Macro F1 sits ~2.8pp below accuracy on test, a wider spread than ViT-B/16's ~1.6pp. Oxford-102's class counts range from 40 to 258 images, so this gap says errors concentrate in the rare classes — and that this model's long-tail performance is meaningfully weaker than ViT's, more so than the headline accuracy difference alone suggests. Per-class F1 is computed but not currently exported; see `test_per_class_f1` in `src/classifier.py`.
+Macro F1 sits well below accuracy on test, a wider spread than either other model here. Oxford-102's class counts range from 40 to 258 images, so this gap says errors concentrate in the rare classes — and that this model's long-tail performance is meaningfully weaker than ConvNeXt-Tiny's or ViT-B/16's, more so than the headline accuracy difference alone suggests. Per-class F1 is computed but not currently exported; see `test_per_class_f1` in `src/classifier.py`.
 
-## Metrics correction — earlier scores were invalid
+## Training history
 
 An earlier version of this card claimed **0.9997 accuracy / 0.9995 F1**. That was a measurement bug, not a real result. `FlowerDataModule.setup()` in `src/data.py` built all three splits from the same subset:
 
@@ -131,39 +132,38 @@ self.test_set  = SubsetWithTransform(train_subset, self.transform_test)  # bug �
 
 `val_subset` and `test_subset` were built and then discarded. Validation and test scored the model against the exact images it had trained on — total leakage, not partial. A ~1.0 score was the expected outcome of memorization and carried no information about generalization.
 
-**The weights are not contaminated.** Training only ever read `train_subset`, so no held-out image ever reached a gradient. What the bug corrupted was *measurement* — and, through it, model selection: `ModelCheckpoint` and `EarlyStopping` were both driven by `val_acc`, which was really train accuracy. This checkpoint was therefore chosen on a signal that couldn't distinguish good epochs from overfit ones, and is unlikely to be the best epoch of its run.
+**The weights were never contaminated.** Training only ever read `train_subset`, so no held-out image ever reached a gradient. What the bug corrupted was *measurement* — and, through it, model selection: `ModelCheckpoint` and `EarlyStopping` were both driven by `val_acc`, which was really train accuracy.
 
-The split logic is now fixed. The metrics above come from re-scoring this same published checkpoint against genuinely held-out data via `notebooks/reevaluate_published_models.ipynb`.
+**This checkpoint replaces the leak-era one.** It comes from the `corrected-split-retrain` experiment, trained after the fix, so every metric above was measured on genuinely held-out data and the checkpoint was selected on a real validation signal.
 
-**A full retrain on the corrected splits is planned.** Expect these numbers to improve: this is a leak-era checkpoint re-measured honestly, not a model whose training was ever guided by a real validation signal. Early stopping never had a reason to fire at the right time, and no hyperparameter choice in this run was validated against held-out data.
+One finding worth recording: the retrain recovered less than expected. The leak-era EfficientNetV2-S checkpoint, re-scored honestly on the same held-out data, reached 0.9364 test macro-F1 against this model's 0.9433. The bug inflated the *reported* numbers substantially; it cost the *weights* comparatively little.
 
 ## Strengths & Weaknesses
 
 **Strengths:**
-- ~4x smaller (81.8MB vs 343.5MB) and ~3x faster (29.6ms vs 86.5ms mean latency) than ViT-B/16 for ~2.7pp of test macro-F1 — still the best accuracy-per-cost tradeoff of the four models trained, and the reason this remains the serving default.
+- Smallest of the three published models — 81.8 MB of weights and 20,308,150 parameters, the cheapest to download, store, and hold in host memory.
 - Convolutional inductive bias generalizes well from a modest fine-tuning dataset (~8k images), needing less data than attention-based architectures to reach its ceiling.
-- Small enough to fit comfortably in the Docker image and serve cheaply (this is the architecture family the v2 API's original `helpers.py` defaulted to).
+- Its GPU latency penalty does not carry over to CPU, where it runs neck-and-neck with ConvNeXt-Tiny — so a CPU-only deployment pays much less for choosing it than the GPU figures suggest.
 
 **Weaknesses:**
-- Genuinely less accurate than ViT-B/16 — ~1.5pp test accuracy and ~2.7pp test macro-F1 behind. The earlier claim that this gap was "negligible" / "within noise" was an artifact of the leaked metrics, which pinned both models at ~1.0 and hid the difference entirely.
-- Weaker on rare classes specifically: its accuracy-to-macro-F1 spread (~2.8pp) is nearly double ViT's (~1.6pp), so the deficit is concentrated in exactly the long-tail classes an imbalanced dataset makes hardest.
-- EfficientNetV2's published training recipe (progressive resizing, adaptive regularization) is more sensitive to schedule/hyperparameter choices than a straightforward ViT fine-tune; deviating far from a tuned recipe can cost more accuracy than it would for ViT.
-- Selected by a checkpoint callback that was reading a leaked metric (see above), so this is likely not the best epoch this recipe can produce.
+- Least accurate of the three: 0.9433 test macro-F1 against ConvNeXt-Tiny's 0.9694 and ViT-B/16's 0.9722. This is the largest gap in the lineup, not a rounding difference.
+- Slowest of the three on GPU at batch size 1 despite having the fewest parameters — see the note under [Evaluation](#evaluation). Its earlier cards claimed a latency advantage that only holds on CPU.
+- Weakest on rare classes specifically: its accuracy-to-macro-F1 spread is the widest of the three, so the deficit concentrates in exactly the long-tail classes an imbalanced dataset makes hardest.
+- EfficientNetV2's published training recipe (progressive resizing, adaptive regularization) is more sensitive to schedule/hyperparameter choices than a straightforward ConvNeXt or ViT fine-tune; deviating far from a tuned recipe can cost more accuracy than it would for the other two.
 
 ## Limitations
 
 - **Closed-set, single-label**: trained on exactly 102 Oxford flower species; will confidently misclassify any other flower species, non-flower image, or multi-flower image into one of the 102 known classes — there is no out-of-distribution rejection.
-- **Fixed input pipeline**: expects a 224×224 center-cropped, normalized input (resize-then-crop). Unusual aspect ratios or off-center subjects can crop the flower out of frame.
+- **Fixed input pipeline**: expects a 224×224 input produced by resizing to a fixed 256×256 square and center-cropping. The resize does not preserve aspect ratio, so non-square images are distorted before the crop, and off-center subjects can be cropped out of frame.
 - **No adversarial robustness or calibration guarantees** — confidence scores are not calibrated probabilities.
 - Reported metrics are on held-out Oxford-102 val/test splits; real-world images (different lighting, backgrounds, camera quality) may perform worse.
-- **Macro F1 (~0.936) is the number to trust, not accuracy (~0.964)** — Oxford-102 is class-imbalanced (40–258 images per class), and the ~2.8pp gap between the two means errors concentrate in rare classes. If your use case cares about the long tail, budget for the F1 figure, and consider ViT-B/16, whose long-tail deficit is smaller.
-- This checkpoint predates the split fix and was selected on a leaked validation signal — a retrain is planned (see [Metrics correction](#metrics-correction--earlier-scores-were-invalid)).
+- **Macro F1 (0.9433) is the number to trust, not accuracy (0.9691)** — Oxford-102 is class-imbalanced (40–258 images per class), and the gap between the two means errors concentrate in rare classes. If your use case cares about the long tail, budget for the F1 figure, and consider ConvNeXt-Tiny, whose long-tail deficit is smaller.
 
 ## Intended Use
 
 **Intended uses:**
 - Flower species identification within the 102 Oxford-102 classes (gardening/botany apps, educational tools, dataset labeling).
-- Default backend model for this project's v2 `/classify` API endpoint — chosen for its accuracy/latency/size balance.
+- Backend model for this project's v2 `/classify` API endpoint when download size or host memory is the constraint.
 
 **Out-of-scope uses:**
 - General-purpose plant, object, or scene classification outside the 102 trained species.
@@ -172,24 +172,25 @@ The split logic is now fixed. The metrics above come from re-scoring this same p
 
 ## Model Comparison
 
-This project trained four models in total, in this order. All figures are **test-split** accuracy on held-out data:
+All figures are **test-split** metrics on held-out data. The three current models were trained on the corrected splits; the two v1 baselines are listed for historical context.
 
 | Model | Test Acc | Test F1 | Params | Size (MB) | Best For |
 |---|---|---|---|---|---|
 | [SimpleCNN (scratch)](https://huggingface.co/bengid/flower-classifier/blob/main/flower_model_weights.pth) | ~0.63 | - | - | - | historical baseline only |
 | [EfficientNet-B0 (v1, partial unfreeze)](https://huggingface.co/bengid/flower-classifier/blob/main/ft_EfficientNet-B0.pth) | >0.93 | - | - | - | historical baseline only |
-| **EfficientNetV2-S (this model)** | **0.9642** | **0.9364** | 20,308,150 | 81.8 | efficient production serving |
-| [ViT-B/16](https://huggingface.co/bengid/vit-flower-classifier) | 0.9796 | 0.9637 | 85,877,094 | 343.5 | maximum accuracy |
+| [ViT-B/16](https://huggingface.co/bengid/vit-flower-classifier) | 0.9837 | 0.9722 | 85,877,094 | 343.5 | maximum macro-F1 |
+| [ConvNeXt-Tiny](https://huggingface.co/bengid/convnext-tiny-flower-classifier) | 0.9821 | 0.9694 | 27,898,566 | 111.6 | default serving choice |
+| **[EfficientNetV2-S](https://huggingface.co/bengid/efficientnetv2-s-flower-classifier) (this model)** | **0.9691** | **0.9433** | **20,308,150** | **81.8** | smallest weights |
 
-The two v1 models were trained by the older, pre-Lightning pipeline (`api/app/v1/flowers/train_scratch.py`), which split train/val/test correctly — their numbers were never affected by the leak and are directly comparable to the corrected v2 figures above.
+The two v1 models were trained by the older, pre-Lightning pipeline (`api/app/v1/flowers/train_scratch.py`), which split train/val/test correctly — their numbers were never affected by the leak and are directly comparable to the corrected figures above.
 
 ### Why the earlier models underperformed
 
 - **SimpleCNN (scratch)** was trained from randomly initialized weights with no ImageNet pretraining, on a 6-block custom CNN — too little capacity and too little prior visual knowledge to learn 102 fine-grained flower classes from ~8k images alone.
 - **EfficientNet-B0 (v1)** started from ImageNet-pretrained weights but only ever unfroze its *last 3 backbone blocks* during fine-tuning (see this project's root `README.md` for the original two-stage recipe) — the earlier backbone layers, tuned for general ImageNet features, never adapted to flower-specific low/mid-level features.
-- Both **EfficientNetV2-S** (this model) and **ViT-B/16** unfreeze the *entire* backbone during fine-tuning, which drives the improvement from ~93% to ~96–98% test accuracy.
+- All three current models unfreeze the *entire* backbone during fine-tuning, which drives the improvement from ~93% to ~96–98% test accuracy.
 
-Note that this last gain is **~3–5 points, not the ~7 points the leaked metrics implied**. Full-backbone unfreezing is a real improvement over partial unfreezing, but a far more modest one than a jump from 93% to "100%" suggested. The leaked numbers made a good architectural decision look like a spectacular one.
+Note that this gain is **~3–5 points, not the ~7 points the leaked metrics implied**. Full-backbone unfreezing is a real improvement over partial unfreezing, but a far more modest one than a jump from 93% to "100%" suggested.
 
 ## License
 

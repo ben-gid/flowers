@@ -9,7 +9,7 @@ router = APIRouter()
 async def health():
     return {
         "status": "ok",
-        "model_loaded": hasattr(state, "ft_model"),
+        "model_loaded": hasattr(state, "classifier"),
         "class_names_loaded": hasattr(state, "class_names"),
         "transform_loaded": hasattr(state, "transform"),
     }
