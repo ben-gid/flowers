@@ -41,6 +41,8 @@ def loaded_state():
         state.classifier = mock_model
         state.class_names = class_names
         state.transform = lambda img: torch.zeros(3, 224, 224)  # type: ignore
+        state.model_name = "convnext_tiny"
+        state.model_repo = "bengid/convnext-tiny-flower-classifier"
 
     with patch("api.app.v2.core.config.AppState.load", side_effect=_fake_load):
         yield
@@ -56,7 +58,42 @@ def test_health_ok(loaded_state):
     with TestClient(app) as client:
         r = client.get("/health")
     assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    body = r.json()
+    assert body["status"] == "ok"
+    assert body["model_name"] == "convnext_tiny"
+    assert body["model_repo"] == "bengid/convnext-tiny-flower-classifier"
+    assert body["model_loaded"] is True
+    assert body["class_names_loaded"] is True
+    assert body["transform_loaded"] is True
+
+
+def test_health_reports_unloaded_state():
+    """Nothing loaded → the flags say so instead of always reporting ok."""
+
+    def _load_nothing(logger=None):
+        pass
+
+    with patch("api.app.v2.core.config.AppState.load", side_effect=_load_nothing):
+        with TestClient(app) as client:
+            r = client.get("/health")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["model_loaded"] is False
+    assert body["model_name"] is None
+
+
+def test_root_redirects_to_demo(loaded_state):
+    with TestClient(app) as client:
+        r = client.get("/", follow_redirects=False)
+    assert r.status_code in (307, 302)
+    assert r.headers["location"] == "/demo"
+
+
+def test_demo_serves_page(loaded_state):
+    with TestClient(app) as client:
+        r = client.get("/demo")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/html")
 
 
 def test_classify_success(loaded_state):

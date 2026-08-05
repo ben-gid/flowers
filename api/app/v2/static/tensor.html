@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>What the model sees — Flower Classifier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/tensor.css" />
+  </head>
+  <body>
+    <nav class="topbar">
+      <span class="topbar-brand">flowers.v2</span>
+      <span class="status" id="status">checking model…</span>
+      <a href="https://github.com/ben-gid/flowers" rel="noopener">GitHub</a>
+      <a data-hf-link href="https://huggingface.co/bengid" rel="noopener">
+        Weights: <span data-model-name>…</span>
+      </a>
+    </nav>
+
+    <header class="head">
+      <h1>What the<br />model sees</h1>
+      <p>
+        Your photo never reaches the network as you shot it. Drop one and watch
+        the same three transforms the model was trained with reshape it, then
+        read the call off the 224-pixel square that actually goes in.
+      </p>
+    </header>
+
+    <section class="pipeline" aria-label="Preprocessing pipeline">
+      <div class="step" id="step-1">
+        <span class="step-index">01</span>
+        <span class="step-name">Resize 256 × 256</span>
+        <span class="step-detail">aspect squashed, not letterboxed</span>
+      </div>
+      <div class="step" id="step-2">
+        <span class="step-index">02</span>
+        <span class="step-name">Centre crop 224</span>
+        <span class="step-detail">outer 12.5% discarded</span>
+      </div>
+      <div class="step" id="step-3">
+        <span class="step-index">03</span>
+        <span class="step-name">Normalize</span>
+        <span class="step-detail">μ .473 .400 .319 · σ .297 .247 .281</span>
+      </div>
+    </section>
+
+    <main class="panels">
+      <div
+        class="panel source"
+        id="source"
+        role="button"
+        tabindex="0"
+        aria-label="Add a flower photo: click to browse, or drop a file anywhere"
+      >
+        <div class="panel-head">
+          <span>Source · resized</span><span id="source-meta">no input</span>
+        </div>
+        <div class="panel-body">
+          <div class="frame" id="source-frame" data-empty="true">
+            <canvas id="source-canvas" width="256" height="256"></canvas>
+            <div class="crop" id="crop"></div>
+            <p class="placeholder">
+              Drop a photo here or click to browse.<br />JPEG or PNG, up to 5 MB,
+              at least 224 × 224.
+            </p>
+          </div>
+        </div>
+      </div>
+      <input
+        class="visually-hidden"
+        type="file"
+        id="file"
+        accept="image/jpeg,image/png"
+      />
+
+      <div class="panel">
+        <div class="panel-head">
+          <span>Model input</span><span>224 × 224 × 3</span>
+        </div>
+        <div class="panel-body">
+          <div class="frame" id="input-frame" data-empty="true">
+            <canvas id="input-canvas" width="224" height="224"></canvas>
+            <p class="placeholder">The tensor appears here.</p>
+          </div>
+          <p class="frame-note" id="input-note" hidden>
+            Normalized values run outside 0–1, so they are drawn through a
+            shared ±2 window — the colour shift is the transform.
+          </p>
+        </div>
+      </div>
+    </main>
+
+    <section class="readout" id="readout" aria-live="polite">
+      <div class="readout-inner">
+        <p class="readout-label">Prediction</p>
+        <h2 class="readout-name" id="name">—</h2>
+        <div class="segments" id="segments" aria-hidden="true"></div>
+        <div class="readout-meta">
+          <span>confidence <b id="conf">—</b></span>
+          <span>file <b id="file-name">—</b></span>
+          <span>type <b id="file-type">—</b></span>
+          <span>classes <b>102</b></span>
+        </div>
+      </div>
+    </section>
+
+    <script src="/static/demo.js"></script>
+    <script>
+      const SEGMENTS = 24;
+      const segments = document.getElementById("segments");
+      const sourceCanvas = document.getElementById("source-canvas");
+      const inputCanvas = document.getElementById("input-canvas");
+      const sourceFrame = document.getElementById("source-frame");
+      const inputFrame = document.getElementById("input-frame");
+      const crop = document.getElementById("crop");
+      const readout = document.getElementById("readout");
+      const name = document.getElementById("name");
+      const steps = [1, 2, 3].map((n) => document.getElementById(`step-${n}`));
+      const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const wait = (ms) => new Promise((r) => setTimeout(r, reduceMotion ? 0 : ms));
+
+      segments.replaceChildren(
+        ...Array.from({ length: SEGMENTS }, () => document.createElement("span"))
+      );
+
+      getHealth()
+        .then((health) => {
+          applyHealth(health);
+          document.body.dataset.model = health.model_loaded ? "loaded" : "down";
+          document.getElementById("status").textContent = health.model_loaded
+            ? `${health.model_name} ready`
+            : "model not loaded";
+        })
+        .catch(() => {
+          document.getElementById("status").textContent = "api unreachable";
+        });
+
+      function setConfidence(value) {
+        const lit = Math.round(value * SEGMENTS);
+        [...segments.children].forEach((seg, i) => {
+          seg.dataset.on = i < lit ? "true" : "false";
+        });
+      }
+
+      // the values src/utils.py get_transforms() normalizes with
+      const MEAN = [0.4727, 0.3996, 0.3193];
+      const STD = [0.2965, 0.2471, 0.2812];
+      const DISPLAY_RANGE = 2; // normalized values run past 0-1, so show ±2σ
+
+      /** Reproduces Resize((256,256)) then CenterCrop(224) on canvas. */
+      function drawCrop(image) {
+        sourceCanvas.getContext("2d").drawImage(image, 0, 0, 256, 256);
+        inputCanvas
+          .getContext("2d")
+          .drawImage(sourceCanvas, 16, 16, 224, 224, 0, 0, 224, 224);
+      }
+
+      /**
+       * Applies (x - μ) / σ per channel, in place.
+       * Each channel is mapped back through one shared ±2 window rather than
+       * its own range — rescaling per channel would cancel the transform out
+       * and redraw the original.
+       */
+      function drawNormalized() {
+        const ctx = inputCanvas.getContext("2d");
+        const frame = ctx.getImageData(0, 0, 224, 224);
+        const px = frame.data;
+        for (let i = 0; i < px.length; i += 4) {
+          for (let c = 0; c < 3; c++) {
+            const value = (px[i + c] / 255 - MEAN[c]) / STD[c];
+            const shown = ((value + DISPLAY_RANGE) / (2 * DISPLAY_RANGE)) * 255;
+            px[i + c] = Math.max(0, Math.min(255, Math.round(shown)));
+          }
+        }
+        ctx.putImageData(frame, 0, 0);
+      }
+
+      function showError(message) {
+        readout.dataset.verdict = "error";
+        name.textContent = message;
+        document.getElementById("conf").textContent = "—";
+        setConfidence(0);
+        steps.forEach((step) => (step.dataset.active = "false"));
+      }
+
+      async function run(file) {
+        const image = new Image();
+        image.src = URL.createObjectURL(file);
+        try {
+          await image.decode();
+        } catch {
+          showError("That file could not be decoded as an image.");
+          return;
+        }
+
+        readout.dataset.verdict = "pending";
+        name.textContent = "…";
+        document.getElementById("file-name").textContent = file.name;
+        document.getElementById("file-type").textContent = file.type;
+        document.getElementById("source-meta").textContent =
+          `${image.naturalWidth} × ${image.naturalHeight} → 256 × 256`;
+
+        // replay the transforms in order, then hand the file to the API
+        steps.forEach((step) => (step.dataset.active = "false"));
+        sourceCanvas.getContext("2d").drawImage(image, 0, 0, 256, 256);
+        sourceFrame.dataset.empty = "false";
+        steps[0].dataset.active = "true";
+        crop.dataset.on = "false";
+
+        await wait(220);
+        crop.dataset.on = "true";
+        steps[1].dataset.active = "true";
+        await wait(reduceMotion ? 0 : 560);
+
+        drawCrop(image);
+        inputFrame.dataset.empty = "false";
+
+        await wait(400);
+        drawNormalized();
+        document.getElementById("input-note").hidden = false;
+        steps[2].dataset.active = "true";
+
+        try {
+          const result = await classifyFile(file);
+          readout.dataset.verdict = result.confidence >= 0.7 ? "high" : "low";
+          name.textContent = result.prediction;
+          document.getElementById("conf").textContent =
+            result.confidence.toFixed(4);
+          document.getElementById("file-name").textContent = result.filename;
+          document.getElementById("file-type").textContent = result.content_type;
+          setConfidence(result.confidence);
+        } catch (error) {
+          showError(error.message);
+        }
+      }
+
+      wirePicker({
+        zone: document.getElementById("source"),
+        input: document.getElementById("file"),
+        onPick: run,
+        onReject: showError,
+        onDragChange: (on) => document.body.classList.toggle("dragging", on),
+      });
+    </script>
+  </body>
+</html>

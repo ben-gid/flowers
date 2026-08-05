@@ -69,6 +69,20 @@ def load_class_names(logger: Logger | None = None) -> list[str]:
     return class_names
 
 
+def resolve_model_name() -> str:
+    """architecture name from the MODEL_NAME env var, validated against the registry.
+
+    Returns:
+        str: a key of MODEL_REGISTRY
+    """
+    model_name = os.getenv("MODEL_NAME", DEFAULT_MODEL_NAME)
+    if model_name not in MODEL_REGISTRY:
+        raise ValueError(
+            f"Unknown MODEL_NAME '{model_name}'. Choose from: {list(MODEL_REGISTRY)}"
+        )
+    return model_name
+
+
 def load_model(
     logger: Logger | None = None,
 ) -> nn.Module:
@@ -83,11 +97,7 @@ def load_model(
     Returns:
         nn.Module: fine tuned classifier
     """
-    model_name = os.getenv("MODEL_NAME", DEFAULT_MODEL_NAME)
-    if model_name not in MODEL_REGISTRY:
-        raise ValueError(
-            f"Unknown MODEL_NAME '{model_name}'. Choose from: {list(MODEL_REGISTRY)}"
-        )
+    model_name = resolve_model_name()
     build_model, head_name, repo_id, hf_filename = MODEL_REGISTRY[model_name]
 
     if logger:

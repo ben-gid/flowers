@@ -1,5 +1,8 @@
+from pathlib import Path
+
 import torch
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse, RedirectResponse
 from torch._tensor import Tensor
 from torch.nn import functional as F
 
@@ -8,6 +11,18 @@ from ..models import PredictionResponse, ValidatedImage
 from ..utils.dependencies import validate_and_convert_file
 
 router = APIRouter()
+
+demo_page = Path(__file__).parent.parent / "static" / "tensor.html"
+
+
+@router.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/demo")
+
+
+@router.get("/demo", include_in_schema=False)
+async def demo():
+    return FileResponse(demo_page)
 
 
 @router.post("/classify", response_model=PredictionResponse)

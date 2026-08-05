@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from .core.config import state
 from .core.logging_config import build_log_config, init_logger
@@ -27,6 +29,11 @@ app = FastAPI(
 )
 
 app.middleware("http")(log_responses)
+app.mount(
+    "/static",
+    StaticFiles(directory=Path(__file__).parent / "static"),
+    name="static",
+)
 app.include_router(classify.router)
 app.include_router(system.router)
 

@@ -22,7 +22,6 @@ def test_get_transforms_returns_two_composes():
 
 
 def test_val_transform_shape():
-
     _, val_t = get_transforms()
     img = Image.new("RGB", (256, 256), color="green")
     tensor = val_t(img)
@@ -30,11 +29,24 @@ def test_val_transform_shape():
 
 
 def test_train_transform_shape():
-
     train_t, _ = get_transforms()
     img = Image.new("RGB", (256, 256), color="blue")
     tensor = train_t(img)
     assert tensor.shape == (3, 224, 224)
+
+
+def test_val_transform_normalizes():
+    """The transform the API serves with must apply (x - mean) / std."""
+    mean = torch.tensor([0.4727, 0.3996, 0.3193])
+    std = torch.tensor([0.2965, 0.2471, 0.2812])
+
+    _, val_t = get_transforms()
+    img = Image.new("RGB", (256, 256), color=(255, 128, 0))
+    tensor = val_t(img)
+
+    expected = (torch.tensor([255, 128, 0]) / 255 - mean) / std
+    per_channel = tensor.flatten(1).mean(dim=1)
+    assert torch.allclose(per_channel, expected, atol=1e-4), per_channel
 
 
 # ---------------------------------------------------------------------------
