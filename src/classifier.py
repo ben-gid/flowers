@@ -163,7 +163,8 @@ class FlowerClassifier(L.LightningModule):
         self.log("test_loss", loss, prog_bar=True)
         self.log("test_acc", self.test_acc(logits, y), prog_bar=True)
         self.log("test_f1", self.test_f1(logits, y), prog_bar=True)
-        # per-class F1 is a vector, not a scalar, so accumulate rather than self.log it
+        # per-class F1 is a vector, not a scalar, so accumulate it here and let the
+        # caller compute() + export it after trainer.test() (see train/run_training.py)
         self.test_per_class_f1.update(logits, y)
 
         return loss
