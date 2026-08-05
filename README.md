@@ -222,7 +222,7 @@ Current state: **34 passing**, lint and typecheck clean. v1 has no coverage at a
 - [x] Retrain on corrected splits with real checkpoint selection and early stopping
 - [x] Re-run the sweep — the tier rankings had been decided on leaked metrics
 - [ ] **Review the Claude-generated test suite properly**
-- [ ] Export per-class F1 (computed in `src/classifier.py`, not surfaced)
+- [x] Export per-class F1 — `on_test_epoch_end` logs `per_class_f1.json` to MLflow
 
 **Model**
 - [x] Lightning migration, MLflow tracking, full-backbone unfreeze, 11 architectures, model cards

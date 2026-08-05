@@ -131,6 +131,20 @@ def run_training(cfg: TrainConfig) -> None:
     )
 
     trainer.fit(pl_model, datamodule=flower_dm)
+    trainer.test(pl_model, datamodule=flower_dm, ckpt_path="best")
+
+    # per-class F1 is a 102-vector, so it goes out as an artifact rather than a metric
+    mlflow_logger.experiment.log_dict(
+        run_id,
+        dict(
+            zip(
+                dataset.classes,
+                pl_model.test_per_class_f1.compute().tolist(),
+                strict=True,
+            )
+        ),
+        "per_class_f1.json",
+    )
 
 
 if __name__ == "__main__":

@@ -33,17 +33,17 @@ CI (`.github/workflows/ci.yml`) runs lint → typecheck → test → docker buil
 ### Training core (`src/`)
 Framework-agnostic Lightning code shared by both training and (indirectly, via checkpoint weights) the APIs:
 - `src/data.py` — `FlowerDataset` (wraps Oxford-102, downloads via `torchvision.datasets.Flowers102` if missing, parses `imagelabels.mat`), `SubsetWithTransform` (per-split transforms over the same base dataset), `FlowerDataModule` (LightningDataModule).
-- `src/classifier.py` — `FlowerClassifier(L.LightningModule)`: wraps an arbitrary pretrained torchvision backbone, swaps its head (`head_name` points at the attribute, e.g. `"classifier"`, `"fc"`, `"heads"`) for a 102-class layer, logs confusion matrices to MLflow.
+- `src/classifier.py` — `FlowerClassifier(L.LightningModule)`: wraps an arbitrary pretrained torchvision backbone, swaps its head (`head_name` points at the attribute, e.g. `"classifier"`, `"fc"`, `"heads"`) for a 102-class layer. Logs loss/acc/macro-F1 per stage via `self.log` (logger-agnostic); `test_per_class_f1` is accumulated but never logged here — the caller computes and exports it. Keep MLflow-client calls out of `src/`.
 - `src/callbacks.py` — `BackboneFinetuning`: two-stage fine-tuning callback (freeze backbone → unfreeze at `unfreeze_at_epoch` with a lower LR and a separate param group).
 - `src/utils.py` — device selection, `get_transforms()` (the canonical 224×224 resize/crop/normalize pipeline, mean/std precomputed from the dataset), class-weight computation for the imbalanced label distribution.
 
 ### Training pipeline (`train/`)
 - `train/config.py` — `TrainConfig` dataclass, the single source of truth for hyperparameters. Optimizer/scheduler/pretrained-model choices are stored as *name strings* and resolved via registries (`OPTIMIZER_REGISTRY`, `SCHEDULER_REGISTRY`, `PRETRAINED_MODEL_REGISTRY`) — add a model/optimizer by adding a registry entry, not by editing call sites. `resolve()` must be called before the config is usable (materializes the actual classes/instances).
-- `train/run_training.py` — `run_training(cfg)`: builds the datamodule, model, callbacks (checkpointing, early stopping, LR monitor), MLflow logger, and Lightning `Trainer`, then fits. Requires GPU (`accelerator="gpu"` hardcoded).
+- `train/run_training.py` — `run_training(cfg)`: builds the datamodule, model, callbacks (checkpointing, early stopping, LR monitor), MLflow logger, and Lightning `Trainer`, then fits, runs `trainer.test(ckpt_path="best")`, and exports the per-class F1 vector as the `per_class_f1.json` MLflow artifact. Requires GPU (`accelerator="gpu"` hardcoded).
 - `train/cli/custom.py` — argparse CLI over `TrainConfig`, driven by the registries in `config.py`.
 - `train/cli/sweep.py` — runs a curated grid of configs across three tiers (A=max accuracy, B=balanced, C=fast).
 - `train/gui/app.py` — FastAPI + Jinja dashboard that launches CLI training runs and reads results straight from `mlflow.db` (sqlite).
-- Checkpoints land in `models_checkpoints/`, named `{model}-epoch={n}-val_acc={acc}-{run_id}.ckpt`; MLflow tracking DB is `mlflow.db` at repo root, artifacts (confusion matrices, etc.) in `artifacts/`.
+- Checkpoints land in `models_checkpoints/`, named `{model}-epoch={n}-val_acc={acc}-{run_id}.ckpt`; MLflow tracking DB is `mlflow.db` at repo root, artifacts (`per_class_f1.json`, etc.) in `artifacts/`.
 
 ### v1 API (`api/app/v1/flowers/`)
 Self-contained legacy module (own `models.py` with `FlowerDataset`/`SimpleCNN` duplicated rather than importing `src/`). Serves both a from-scratch `SimpleCNN` (`/predict/scratch`) and a fine-tuned EfficientNet-B0 (`/predict`) from `app.state`. Not part of the Docker image; kept for reference/comparison.
