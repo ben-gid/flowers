@@ -52,7 +52,8 @@ Self-contained legacy module (own `models.py` with `FlowerDataset`/`SimpleCNN` d
 Restructured into routers/core/utils rather than one flat file:
 - `core/config.py` — `AppState` singleton (`state`), loaded/cleared in the FastAPI `lifespan`. Holds `classifier`, `class_names`, `transform`.
 - `core/logging_config.py`, `core/middleware.py` — structured logging (overrides uvicorn's default logger, unlike v1) and a request-logging middleware.
-- `routers/classify.py` — `POST /classify`; `routers/system.py` — `GET /health`.
+- `routers/classify.py` — `POST /classify`, plus `GET /` (redirects to `/demo`) and `GET /demo` (serves `static/tensor.html`); `routers/system.py` — `GET /health` (returns `HealthResponse`, including the loaded `model_name`/`model_repo`).
+- `static/` — the browser demo: `tensor.html` + `tensor.css` (page-specific choreography inline) and `demo.js` (shared file-picking and API calls). The page reproduces `get_transforms()`'s val pipeline on canvas — squash to 256, centre-crop 224, then `(x - μ) / σ` — so its μ/σ constants must stay in step with `src/utils.py`.
 - `utils/dependencies.py` — `validate_and_convert_file`: FastAPI dependency doing content-type/size/dimension validation, returns a `ValidatedImage`.
 - `utils/helpers.py` — `load_model()` currently hardcodes `torchvision.models.efficientnet_b0` and downloads weights (`ft_EfficientNet-B0.pth`) from the `bengid/flower-classifier` HF Hub repo if not found at `FT_MODEL_PATH`/repo root.
 - `utils/model_def.py` — defines a `FlowerClassifier(nn.Module)` wrapper that is currently **unused** by `helpers.load_model()` (which builds the raw `efficientnet_b0` directly). The model architecture for v2 is still being decided — check whether this wrapper is meant to replace the direct-load path before assuming either is canonical.
