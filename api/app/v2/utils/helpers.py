@@ -59,7 +59,8 @@ def load_class_names(logger: Logger | None = None) -> list[str]:
             class_names = [f"Class {i}" for i in range(102)]
         else:
             with open(classes_path) as f:
-                class_names = f.read().splitlines()
+                # lines look like " 'pink primrose'"
+                class_names = [n.strip().strip("'") for n in f.read().splitlines()]
             if logger is not None:
                 logger.info("Class Names loaded")
     except Exception as e:
