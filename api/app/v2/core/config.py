@@ -14,7 +14,7 @@ from ..utils.helpers import (
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent.parent))
 
-from src.utils import get_transforms
+from src.utils import get_device, get_transforms
 
 
 class AppState:
@@ -33,7 +33,7 @@ class AppState:
         logger.info("Loading model...")
         self.model_name = resolve_model_name()
         self.model_repo = MODEL_REGISTRY[self.model_name][2]
-        self.classifier = load_model(logger)
+        self.classifier = load_model(logger).to(get_device())
         logger.info("Model loaded")
 
         self.class_names = load_class_names(logger)
